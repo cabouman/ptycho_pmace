@@ -1,0 +1,13 @@
+data:
+  obj_dir: data/ground_truth_img/SIM-generating_object.tiff
+  probe_dir: data/ground_truth_img/SIM-generating_probe.tiff
+  num_agts: 64
+  probe_spacing: 56
+  max_scan_loc_offset: 5
+  add_noise: True
+  photon_rate: 100000
+  shot_noise_rate: 1
+  data_dir: data/synthetic_data/noisy/
+  display: False
+
+

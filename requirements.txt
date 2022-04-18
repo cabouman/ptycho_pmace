@@ -1,0 +1,15 @@
+numpy
+matplotlib
+tifffile
+scipy
+pyfftw
+torch
+PyYAML
+imagecodecs
+scico
+ray
+ray[tune]
+pandas
+hyperopt
+
+

@@ -1,0 +1,38 @@
+data:
+  obj_dir: data/ground_truth_img/realIC/SIM-generating_object.tiff
+  probe_dir: data/ground_truth_img/realIC/SIM-generating_probe.tiff
+  data_dir: data/synthetic_data/noisy_data/probe_spacing_20/photon_rate_100000.0/
+  init_guess_form: formulated                                             # formulated or ground truth
+  window_coords: [150, 511, 150, 511]
+  display: True
+recon:
+  num_iter: 100
+ePIE:
+  obj_step_sz: 1
+  out_dir: ePIE/
+WF:
+  out_dir: WF/
+AWF:
+  out_dir: AWF/
+SHARP:
+  relax_pm: 0.75
+  out_dir: SHARP/
+SHARP_plus:
+  relax_pm: 0.75
+  out_dir: SHARP_plus/
+PMACE:
+  alpha: 1
+  rho: 0.5
+  probe_exponent: 1.25
+  out_dir: PMACE/
+reg-PMACE:
+  alpha: 1
+  rho: 0.5
+  probe_exponent: 1.5
+  reg_wgt: 0.1
+  noise_std: 0.1
+  prior: bm3d
+  out_dir: reg-PMACE/
+output:
+  out_dir: output/
+
