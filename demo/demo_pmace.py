@@ -136,7 +136,7 @@ def main():
     prior = config['reg-PMACE']['prior']                # prior model, eg. bm3d or DnCNN
     reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir'] + 'reg_PMACE/reg_wgt_{}_noise_std_{}/'.format(reg_wgt, noise_std)
     reg_pmace_result = reg_pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                       num_iter=num_iter, obj_prox_pm=alpha, rho=rho, robe_exp=probe_exp,
+                                       num_iter=num_iter, obj_prox_pm=alpha, rho=rho, probe_exp=probe_exp,
                                        reg_wgt=reg_wgt, noise_std=noise_std, prior_model=prior,
                                        display_win=display_win, display=display, save_dir=reg_pmace_dir)
 

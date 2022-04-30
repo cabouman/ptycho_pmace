@@ -1,5 +1,5 @@
 data:
-  obj_dir: data/ground_truth_img/SIM-generating_object.tiff
+  obj_dir: data/ground_truth_img/SIM-generating_image.tiff
   probe_dir: data/ground_truth_img/SIM-generating_probe.tiff
   num_agts: 64
   probe_spacing: 56
