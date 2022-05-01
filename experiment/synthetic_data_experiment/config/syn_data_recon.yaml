@@ -1,0 +1,12 @@
+data:
+  obj_dir: data/ground_truth_img/SIM-generating_image.tiff
+  probe_dir: data/ground_truth_img/SIM-generating_probe.tiff
+  data_dir: data/synthetic_noisy_data/
+recon:
+  init_guess_form: formulated                                             # formulated or ground truth
+  window_coords: [112, 912, 112, 912]
+  display: False
+  num_iter: 100
+  out_dir: output/
+
+
