@@ -1,7 +1,5 @@
-from utils.utils import *
-from utils.nrmse import *
-from utils.display import *
-from utils.prior import *
+from ptycho_pmace.utils.utils import *
+from ptycho_pmace.utils.prior import *
 
 
 def weighted_prox_map(current_est, joint_est, diffraction, param):
@@ -47,8 +45,8 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz):
     return output
 
 
-def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100, obj_prox_pm=1, rho=0.5,
-                probe_exp=1.25, display_win=None, display=False, save_dir=None):
+def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref,
+                num_iter=100, obj_nsr_pm=1, rho=0.5, probe_exp=1.25, cstr_win=None, save_dir=None):
     """
     PMACE reconstruction to perform single estimate on complex transmittance of complex
     object assuming known complex probe function. The Mann iteration is given by:
@@ -65,22 +63,19 @@ def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100
     :param obj_ref: ground truth image or reference image.
     :param probe_ref: known or estimated complex probe function.
     :param num_iter: number of iterations.
-    :param obj_prox_pm: noise-to-signal ration parameter in probe-weighted proximal function.
+    :param obj_nsr_pm: noise-to-signal ration parameter in probe-weighted proximal function.
     :param rho: Mann averaging parameter.
     :param probe_exp: probe exponent.
-    :param display_win: pre-defined cover/window for comparing reconstruction results.
-    :param display: option to display the reconstruction results.
+    :param cstr_win: pre-defined cover/window for comparing reconstruction results.
     :param save_dir: save reconstruction results to the given directory.
     :return: reconstructed complex transmittance of complex object and error metrics.
     """
-    # check directories for saving files
+    # check directories
     if save_dir is not None:
-        obj_fname = save_dir + 'PMACE_img_revy'
         os.makedirs(save_dir, exist_ok=True)
-
-    if display_win is None:
-        display_win = np.ones(init_guess.shape)
-
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_guess)
+        
     # initialization
     num_agts, m, n = diffr_data.shape
     probe = probe_ref
@@ -96,7 +91,7 @@ def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100
     print('PMACE starts ...')
     for i in range(num_iter):
         # w <- F(v; w)
-        x_mat = weighted_prox_map(v_mat, probe, diffr_data, obj_prox_pm)
+        x_mat = weighted_prox_map(v_mat, probe, diffr_data, obj_nsr_pm)
 
         # z <- G(2w - v)
         x_cons = weighted_consen_operator((2 * x_mat - v_mat) * (np.abs(probe)**probe_exp), coords, consen_norm, init_guess.shape)
@@ -117,8 +112,8 @@ def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100
         diffr_nrmse_ls.append(diffr_nrmse_val)
 
         # phase normalization and compute the nrmse error between reconstructed image and reference image
-        obj_revy = phase_norm(np.copy(obj_est) * display_win, np.copy(obj_ref) * display_win)
-        obj_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
+        obj_revy = phase_norm(np.copy(obj_est) * cstr_win, np.copy(obj_ref) * cstr_win)
+        obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
         obj_nrmse_ls.append(obj_nrmse_val)
         print('iter =', i, 'img_error =', obj_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
@@ -126,14 +121,6 @@ def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100
     save_tiff(obj_est, save_dir + 'iter_{}.tiff'.format(i + 1))
     save_array(obj_nrmse_ls, save_dir + 'obj_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
-
-    # display the reconstructed image and convergence plot
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='PMACE', display_win=display_win, display=display, save_fname=obj_fname)
-    xlabel, ylabel, line_label = 'Number of iterations', 'object NRMSE', r'PMACE ($\alpha$ = {})'.format(obj_prox_pm)
-    plot_nrmse(obj_nrmse_ls, title='Convergence plot of PMACE algorithm', label=[xlabel, ylabel, line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_obj_nrmse')
-    plot_nrmse(diffr_nrmse_ls, title='Convergence plot of PMACE algorithm', label=[xlabel, 'diffraction NRMSE', line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_diffr_nrmse')
 
     # return the result
     keys = ['obj_revy', 'obj_err', 'diffr_err']
@@ -143,9 +130,8 @@ def pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100
     return output
 
 
-
 def reg_consen_operator(projected_patch, coords, norm, img_sz,
-                        reg_wgt=0.1, noise_std=0.1, prior_model='bm3d', block_idx=None):
+                        reg_wgt=0.6, noise_std=10/255, prior_model='bm3d', block_idx=None):
     """
     The consensus operator G \left ( x \right ) = \begin{bmatrix}
                                                       \bar{x_{0}}\\
@@ -189,9 +175,9 @@ def reg_consen_operator(projected_patch, coords, norm, img_sz,
     return output
 
 
-def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100,
-                    obj_prox_pm=1, rho=0.5, probe_exp=1.25, reg_wgt=0.1, noise_std=0.1, prior_model='bm3d',
-                    display_win=None, display=False, save_dir=None):
+def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter=100, obj_nsr_pm=0.5,
+                    rho=0.5, probe_exp=1.25, reg_wgt=0.6, noise_std=10/255, prior_model='bm3d',
+                    cstr_win=None, save_dir=None):
     """
     This function add regularization to PMACE formulation.
     :param init_guess: formulated initial guess of complex transmittance of complex object image.
@@ -200,24 +186,21 @@ def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter
     :param obj_ref: ground truth image or reference image.
     :param probe_ref: known or estimated complex probe function.
     :param num_iter: number of iterations.
-    :param obj_prox_pm: noise-to-signal ration parameter in probe-weighted proximal function.
+    :param obj_nsr_pm: noise-to-signal ration parameter in probe-weighted proximal function.
     :param rho: Mann averaging parameter.
     :param probe_exp: probe exponent.
     :param reg_wgt: regularization weight.
     :param noise_std: denoising parameter of denoiser.
     :param prior_model: default prior model is complex bm3d software.
-    :param display_win: pre-defined cover/window for comparing reconstruction results.
-    :param display: option to display the reconstruction results.
+    :param cstr_win: pre-defined cover/window for comparing reconstruction results.
     :param save_dir: save reconstruction results to the given directory.
     :return: reconstructed complex transmittance of complex object and error metrics.
     """
-    # check directories for saving files
+    # check directories
     if save_dir is not None:
-        obj_fname = save_dir + 'reg_PMACE_img_revy'
         os.makedirs(save_dir, exist_ok=True)
-
-    if display_win is None:
-        display_win = np.ones(init_guess.shape)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_guess)
 
     # initialization
     num_agts, m, n = diffr_data.shape
@@ -235,9 +218,10 @@ def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter
     start_time = time.time()
 
     # PMACE reconstruction
+    print('reg-PMACE starts ...')
     for i in range(num_iter):
         # w <- F(v; w)
-        x_mat = weighted_prox_map(v_mat, probe, diffr_data, obj_prox_pm)
+        x_mat = weighted_prox_map(v_mat, probe, diffr_data, obj_nsr_pm)
 
         # z <- G(2w - v)
         x_cons = reg_consen_operator((2 * x_mat - v_mat) * (np.abs(probe) ** probe_exp), coords, consen_norm, init_guess.shape,
@@ -258,8 +242,8 @@ def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter
         diffr_nrmse_ls.append(diffr_nrmse_val)
 
         # phase normalization and compute the nrmse error between reconstructed image and reference image
-        obj_revy = phase_norm(np.copy(obj_est) * display_win, np.copy(obj_ref) * display_win)
-        obj_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
+        obj_revy = phase_norm(np.copy(obj_est) * cstr_win, np.copy(obj_ref) * cstr_win)
+        obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
         obj_nrmse_ls.append(obj_nrmse_val)
         print('iter =', i, 'img_error =', obj_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
@@ -267,16 +251,6 @@ def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter
     save_tiff(obj_est, save_dir + 'iter_{}.tiff'.format(i + 1))
     save_array(obj_nrmse_ls, save_dir + 'obj_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
-
-    # display the reconstructed image and convergence plot
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='reg-PMACE', display_win=display_win, display=display, save_fname=obj_fname)
-    xlabel, ylabel = 'Number of iterations', 'object NRMSE',
-    line_label = r'reg-PMACE ($\alpha$ = {}, $\mu$ = {}, $\sigma$ = {})'.format(obj_prox_pm, reg_wgt, noise_std)
-    plot_nrmse(obj_nrmse_ls, title='Convergence plot of reg-PMACE algorithm', label=[xlabel, ylabel, line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_obj_nrmse')
-    plot_nrmse(diffr_nrmse_ls, title='Convergence plot of reg-PMACE algorithm',
-               label=[xlabel, 'diffraction NRMSE', line_label], step_sz=15, fig_sz=[8, 4.8],
-               display=display, save_fname=save_dir + 'convergence_diffr_nrmse')
 
     # return the result
     keys = ['obj_revy', 'obj_err', 'diffr_err']
@@ -288,7 +262,7 @@ def reg_pmace_recon(init_guess, diffr_data, coords, obj_ref, probe_ref, num_iter
 
 def pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_ref, probe_ref,
                       num_iter=100, obj_param=0.5, probe_param=1, rho=0.5, probe_exp=1.25, obj_exp=0.25,
-                      display_win=None, display=False, save_dir=None):
+                      cstr_win=None, save_dir=None):
     """
     Function to perform ptychographyic with PMACE formulation. The Mann iteration is given by:
         Initialization
@@ -309,23 +283,16 @@ def pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_ref, p
     :param probe_param: noise-to-signal ratio in probe.
     :param rho: Mann averaging parameter.
     :param probe_exp: exponent of probe weighting.
-    :param display_win: reconstruction window.
-    :param display: display the reconstruction results.
+    :param cstr_win: reconstruction window.
     :param save_dir: path for saving reconstructed images.
     :return: reconstructed complex image and probe and nrmse.
     """
 
-    # check directories for saving files
-    if save_dir is None:
-        obj_fname = None
-        probe_fname = None
-    else:
-        obj_fname = save_dir + 'PMACE_img_revy'
-        probe_fname = save_dir + 'PMACE_probe_revy'
+    # check directories
+    if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
-
-    if display_win is None:
-        display_win = np.ones(init_obj.shape)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_obj)
 
     obj_est = np.asarray(init_obj, dtype=np.complex128)
     obj_mat = img2patch(obj_est, projection_coords, diffr.shape)
@@ -370,25 +337,21 @@ def pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_ref, p
         diffraction_est = np.abs(compute_ft(probe_est * img2patch(np.copy(obj_est), projection_coords, diffr.shape)))
         diffr_nrmse_val = compute_nrmse(diffraction_est, diffr)
         diffr_nrmse_ls.append(diffr_nrmse_val)
-        # phase normalization and scale image to minimize the intensity difference
 
+        # phase normalization and scale image to minimize the intensity difference
         if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * display_win, obj_ref * display_win)
+            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
+            img_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
+            obj_nrmse_ls.append(img_nrmse_val)
         else:
             obj_revy = obj_est
-            obj_ref = obj_revy
+
         if probe_ref is not None:
             probe_revy = phase_norm(np.copy(probe_est), probe_ref)
+            probe_nrmse_val = compute_nrmse(probe_revy, probe_ref)
+            probe_nrmse_ls.append(probe_nrmse_val)
         else:
             probe_revy = probe_est
-            probe_ref = probe_revy
-
-        # compute the nrmse error
-        img_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
-        obj_nrmse_ls.append(img_nrmse_val)
-        probe_nrmse_val = compute_nrmse(probe_revy, probe_ref, np.ones(probe_revy.shape))
-        probe_nrmse_ls.append(probe_nrmse_val)
-        print('iter =', i, 'img_nrmse =', img_nrmse_val, 'probe_nrmse =', probe_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
     # calculate time consumption
     elapsed_time = time.time() - start_time
@@ -401,11 +364,7 @@ def pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_ref, p
     save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
 
-    # display the reconstructed image and probe
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='PMACE', display_win=display_win, display=display, save_fname=obj_fname)
-    plot_cmplx_probe(probe_revy, probe_ref, img_title='PMACE', display=display, save_fname=probe_fname)
-
-    # return the result
+    # return result
     keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
     vals = [obj_revy, probe_revy, obj_nrmse_ls, probe_nrmse_ls, diffr_nrmse_ls]
     output = dict(zip(keys, vals))
@@ -415,8 +374,7 @@ def pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_ref, p
 
 def reg_pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_ref, probe_ref,
                           num_iter=100, obj_param=0.5, probe_param=1, rho=0.5, probe_exp=1.25, obj_exp=0.25,
-                          reg_wgt=0.1, noise_std=0.1, prior_model='bm3d',
-                          display_win=None, display=False, save_dir=None):
+                          reg_wgt=0.1, noise_std=0.1, prior_model='bm3d', cstr_win=None, save_dir=None):
     """
     Function to perform ptychographyic with PMACE formulation + serial regularization.
     :param init_obj: initialized complex object.
@@ -434,23 +392,15 @@ def reg_pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_re
     :param reg_wgt: regularization weight.
     :param noise_std: denoising parameter.
     :param prior_model: denoising model.
-    :param display_win: reconstruction window.
-    :param display: display the reconstruction results.
+    :param cstr_win: reconstruction window.
     :param save_dir: path for saving reconstructed images.
     :return: reconstructed complex image and probe and nrmse.
     """
-
-    # check directories for saving files
-    if save_dir is None:
-        obj_fname = None
-        probe_fname = None
-    else:
-        obj_fname = save_dir + 'reg_PMACE_img_revy'
-        probe_fname = save_dir + 'reg_PMACE_probe_revy'
+    # check directories
+    if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
-
-    if display_win is None:
-        display_win = np.ones(init_obj.shape)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_obj)
 
     obj_est = np.asarray(init_obj, dtype=np.complex128)
     obj_mat = img2patch(obj_est, projection_coords, diffr.shape)
@@ -502,25 +452,21 @@ def reg_pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_re
         diffraction_est = np.abs(compute_ft(probe_est * img2patch(np.copy(obj_est), projection_coords, diffr.shape)))
         diffr_nrmse_val = compute_nrmse(diffraction_est, diffr)
         diffr_nrmse_ls.append(diffr_nrmse_val)
-        # phase normalization and scale image to minimize the intensity difference
 
+        # phase normalization and scale image to minimize the intensity difference
         if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * display_win, obj_ref * display_win)
+            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
+            img_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
+            obj_nrmse_ls.append(img_nrmse_val)
         else:
             obj_revy = obj_est
-            obj_ref = obj_revy
+
         if probe_ref is not None:
             probe_revy = phase_norm(np.copy(probe_est), probe_ref)
+            probe_nrmse_val = compute_nrmse(probe_revy, probe_ref)
+            probe_nrmse_ls.append(probe_nrmse_val)
         else:
             probe_revy = probe_est
-            probe_ref = probe_revy
-
-        # compute the nrmse error
-        img_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
-        obj_nrmse_ls.append(img_nrmse_val)
-        probe_nrmse_val = compute_nrmse(probe_revy, probe_ref, np.ones(probe_revy.shape))
-        probe_nrmse_ls.append(probe_nrmse_val)
-        print('iter =', i, 'img_nrmse =', img_nrmse_val, 'probe_nrmse =', probe_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
     # calculate time consumption
     elapsed_time = time.time() - start_time
@@ -533,11 +479,7 @@ def reg_pmace_joint_recon(init_obj, init_probe, diffr, projection_coords, obj_re
     save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
 
-    # display the reconstructed image and probe
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='reg-PMACE', display_win=display_win, display=display, save_fname=obj_fname)
-    plot_cmplx_probe(probe_revy, probe_ref, img_title='reg-PMACE', display=display, save_fname=probe_fname)
-
-    # return the result
+    # return result
     keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
     vals = [obj_revy, probe_revy, obj_nrmse_ls, probe_nrmse_ls, diffr_nrmse_ls]
     output = dict(zip(keys, vals))
