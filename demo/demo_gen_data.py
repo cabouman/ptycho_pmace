@@ -2,7 +2,7 @@ import sys, os
 from pathlib import Path
 root_dir = Path(__file__).parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
-from utils.utils import *
+from ptycho_pmace.utils.utils import *
 from shutil import copyfile
 import argparse, yaml
 

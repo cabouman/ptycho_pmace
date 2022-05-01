@@ -1,20 +1,19 @@
-import sys, os
+import sys
 from pathlib import Path
 root_dir = Path(__file__).parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
-from utils.utils import *
-from ptycho.pmace import *
-from ptycho.sharp import *
-from ptycho.pie import *
-from ptycho.wf import *
+import os, argparse, yaml
 import datetime as dt
 from shutil import copyfile
-import argparse, yaml
+
+from ptycho_pmace.utils.utils import *
+from ptycho_pmace.ptycho import *
 
 
 '''
 This file demonstrates the reconstruction of complex transmittance image by processing the synthetic data. 
 '''
+
 
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic image reconstruction using various approaches.')
@@ -59,7 +58,6 @@ def main():
     # Default parameters
     rand_seed = 0
     np.random.seed(rand_seed)
-    gauss_kernel_std = 10.0
 
     # Load ground truth images from file
     obj_ref = load_img(obj_dir)
@@ -92,40 +90,40 @@ def main():
     # ePIE recon
     obj_step_sz = config['ePIE']['obj_step_sz']
     epie_dir = save_dir + config['ePIE']['out_dir'] + 'obj_step_sz_{}/'.format(obj_step_sz)
-    epie_result = epie_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref, num_iter=num_iter,
-                             step_sz=obj_step_sz, display_win=display_win, display=display, save_dir=epie_dir)
+    epie_result = pie.epie_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                                 num_iter=num_iter, step_sz=obj_step_sz, cstr_win=display_win, save_dir=epie_dir)
 
     # Wirtinger Flow (WF) recon
     wf_dir = save_dir + config['WF']['out_dir']
-    wf_result = wf_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                         num_iter=num_iter, accel=False, display_win=display_win, display=display, save_dir=wf_dir)
+    wf_result = wf.wf_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                            num_iter=num_iter, accel=False, cstr_win=display_win, save_dir=wf_dir)
 
 
     awf_dir = save_dir + config['AWF']['out_dir']
-    awf_result = wf_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                          num_iter=num_iter, accel=True, display_win=display_win, display=display, save_dir=awf_dir)
+    awf_result = wf.wf_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                             num_iter=num_iter, accel=True, cstr_win=display_win, save_dir=awf_dir)
 
     # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
     sharp_dir = save_dir + config['SHARP']['out_dir'] + 'relax_pm_{}/'.format(relax_pm)
-    sharp_result = sharp_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                               num_iter=num_iter, relax_pm=relax_pm, display_win=display_win, display=display, save_dir=sharp_dir)
+    sharp_result = sharp.sharp_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                                     num_iter=num_iter, relax_pm=relax_pm, cstr_win=display_win, save_dir=sharp_dir)
 
     # SHARP+ recon
     relax_pm = config['SHARP_plus']['relax_pm']
     sharp_plus_dir = save_dir + config['SHARP_plus']['out_dir'] + 'relax_pm_{}/'.format(relax_pm)
-    sharp_result = sharp_plus_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                    num_iter=num_iter, relax_pm=relax_pm,
-                                    display_win=display_win, display=display, save_dir=sharp_plus_dir)
+    sharp_plus_result = sharp.sharp_plus_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                                               num_iter=num_iter, relax_pm=relax_pm,
+                                               cstr_win=display_win, save_dir=sharp_plus_dir)
 
     # PMACE recon
     alpha = config['PMACE']['alpha']                   # noise-to-signal ratio
     rho = config['PMACE']['rho']                       # Mann averaging parameter
     probe_exp = config['PMACE']['probe_exponent']      # probe exponent
     pmace_dir = save_dir + config['PMACE']['out_dir'] + 'alpha_{}_rho_{}_probe_exp_{}/'.format(alpha, rho, probe_exp)
-    pmace_result = pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                               num_iter=num_iter, obj_prox_pm=alpha, rho=rho, probe_exp=probe_exp,
-                               display_win=display_win, display=display, save_dir=pmace_dir)
+    pmace_result = pmace.pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                                     num_iter=num_iter, obj_nsr_pm=alpha, rho=rho, probe_exp=probe_exp,
+                                     cstr_win=display_win, save_dir=pmace_dir)
 
     # reg-PMACE recon
     alpha = config['reg-PMACE']['alpha']
@@ -135,20 +133,30 @@ def main():
     noise_std = config['reg-PMACE']['noise_std']        # denoising parameter
     prior = config['reg-PMACE']['prior']                # prior model, eg. bm3d or DnCNN
     reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir'] + 'reg_PMACE/reg_wgt_{}_noise_std_{}/'.format(reg_wgt, noise_std)
-    reg_pmace_result = reg_pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                       num_iter=num_iter, obj_prox_pm=alpha, rho=rho, probe_exp=probe_exp,
-                                       reg_wgt=reg_wgt, noise_std=noise_std, prior_model=prior,
-                                       display_win=display_win, display=display, save_dir=reg_pmace_dir)
+    reg_pmace_result = pmace.reg_pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
+                                             num_iter=num_iter, obj_nsr_pm=alpha, rho=rho, probe_exp=probe_exp,
+                                             reg_wgt=reg_wgt, noise_std=noise_std, prior_model=prior,
+                                             cstr_win=display_win, save_dir=reg_pmace_dir)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     copyfile(args.config_dir, save_dir + 'config.yaml')
 
+    # Plot reconstructed images and compare with ground truth complex image
+    plot_cmplx_img(pmace_result['obj_revy'], img_title='PMACE', ref_img=obj_ref,
+                   display_win=display_win, display=display, save_fname=reg_pmace_dir+'reconstructed_cmplx_img',
+                   fig_sz=[8, 3], mag_vmax=1.05, mag_vmin=.85, real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
+    plot_cmplx_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', ref_img=obj_ref,
+                   display_win=display_win, display=display, save_fname=reg_pmace_dir+'reconstructed_cmplx_img',
+                   fig_sz=[8, 3], mag_vmax=1.05, mag_vmin=.85, real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
+
     # Convergence plots
     xlabel, ylabel = 'Number of iteration', 'NRMSE value in log scale'
     line_label = 'nrmse'
-    nrmse = {'PMACE': pmace_result['obj_err'], 'reg-PMACE': reg_pmace_result['obj_err']}
+    nrmse = {'ePIE': epie_result['obj_err'], 'WF': wf_result['obj_err'], 'AWF': awf_result['obj_err'],
+             'SHARP': sharp_result['obj_err'], 'SHARP+': sharp_plus_result['obj_err'],
+             'PMACE': pmace_result['obj_err'], 'reg-PMACE': reg_pmace_result['obj_err']}
     plot_nrmse(nrmse, title='Convergence plots of PMACE', label=[xlabel, ylabel, line_label],
                step_sz=10, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_plot')
 
