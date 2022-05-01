@@ -1,6 +1,5 @@
-from utils.utils import *
-from utils.nrmse import *
-from utils.display import *
+from ptycho_pmace.utils.utils import *
+from ptycho_pmace.utils.nrmse import *
 
 
 def wf_obj_func(current_est, probe_ref, diffr_data, coords, discretized_sys_mat, param=1):

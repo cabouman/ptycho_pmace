@@ -1,7 +1,6 @@
-from utils.utils import *
-from utils.nrmse import *
-from utils.display import *
 import random
+from ptycho_pmace.utils.utils import *
+from ptycho_pmace.utils.nrmse import *
 
 
 def epie_recon(init_obj_guess, diffraction_data, projection_coords, obj_ref, probe_ref,
