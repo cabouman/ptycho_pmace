@@ -1,6 +1,4 @@
-from utils.utils import *
-from utils.nrmse import *
-from utils.display import *
+from ptycho_pmace.utils.utils import *
 
 
 def fourier_projector(frame_data, diffr_data):
@@ -60,7 +58,7 @@ def space_relected_resolvent(frames, probe, coords, norm, img_sz):
 
 
 def sharp_recon(init_obj_guess, diffraction_data, projection_coords, obj_ref, probe_ref,
-                num_iter=100, relax_pm=0.75, display_win=None, display=False, save_dir=None):
+                num_iter=100, relax_pm=0.75, cstr_win=None, save_dir=None):
     """
     SHARP reconstruction to perform single estimate on complex transmittance of complex object assuming
     known complex probe function. The SHARP is introduced in: https://doi.org/10.1107/S1600576716008074.
@@ -71,20 +69,16 @@ def sharp_recon(init_obj_guess, diffraction_data, projection_coords, obj_ref, pr
     :param probe_ref: known or estimated complex probe function.
     :param num_iter: number of iterations.
     :param relax_pm: relaxation parameter inherited from RAAR algorithm.
-    :param display_win: pre-defined cover/window for comparing reconstruction results.
-    :param display: option to display the reconstruction results.
+    :param cstr_win: pre-defined cover/window for comparing reconstruction results.
     :param save_dir: save reconstruction results to the given directory.
     :return: reconstructed complex transmittance of complex object and error metrics.
     """
-    # check directories for saving files
+    # check directories
     if save_dir is not None:
-        obj_fname = save_dir + 'SHARP_img_revy'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-    if display_win is None:
-        display_win = np.ones(init_obj_guess.shape)
-
+        os.makedirs(save_dir, exist_ok=True)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_obj_guess)
+        
     # initialization
     probe = np.copy(probe_ref)
     img_norm = patch2img(np.ones(diffraction_data.shape) * (np.abs(probe) ** 2), projection_coords, init_obj_guess.shape)
@@ -124,23 +118,15 @@ def sharp_recon(init_obj_guess, diffraction_data, projection_coords, obj_ref, pr
         diffr_nrmse_ls.append(diffr_nrmse_val)
 
         # phase normalization and compute the nrmse error between reconstructed image and reference image
-        obj_revy = phase_norm(np.copy(obj_est) * display_win, np.copy(obj_ref) * display_win)
-        obj_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
+        obj_revy = phase_norm(np.copy(obj_est) * cstr_win, np.copy(obj_ref) * cstr_win)
+        obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
         obj_nrmse_ls.append(obj_nrmse_val)
         print('iter =', i, 'img_error =', obj_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
     # save recon results
-    save_tiff(obj_est, save_dir + 'iter_{}.tiff'.format(i + 1))
+    save_tiff(obj_est, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
     save_array(obj_nrmse_ls,  save_dir + 'obj_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
-
-    # display the reconstructed image and convergence plot
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='SHARP', display_win=display_win, display=display, save_fname=obj_fname)
-    xlabel, line_label = 'Number of iterations', r'SHARP ($relax param$ = {})'.format(relax_pm)
-    plot_nrmse(obj_nrmse_ls, title='Convergence plot of SHARP', label=[xlabel, 'object NRMSE', line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_obj_nrmse')
-    plot_nrmse(diffr_nrmse_ls, title='Convergence plot of SHARP', label=[xlabel, 'diffraction NRMSE', line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_diffr_nrmse')
 
     # return the result
     keys = ['obj_revy', 'obj_err', 'diffr_err']
@@ -151,7 +137,7 @@ def sharp_recon(init_obj_guess, diffraction_data, projection_coords, obj_ref, pr
 
 
 def sharp_plus_recon(init_obj_guess, diffraction_data, projection_coords, obj_ref, probe_ref,
-                     num_iter=100, relax_pm=0.75, display_win=None, display=False, save_dir=None):
+                     num_iter=100, relax_pm=0.75, cstr_win=None, display=False, save_dir=None):
     """
     SHARP+ reconstruction to perform single estimate on complex transmittance of complex object assuming
     known complex probe function. The SHARP+ is introduced in: https://arxiv.org/abs/2111.14240.
@@ -162,19 +148,16 @@ def sharp_plus_recon(init_obj_guess, diffraction_data, projection_coords, obj_re
     :param probe_ref: known or estimated complex probe function.
     :param num_iter: number of iterations.
     :param relax_pm: relaxation parameter inherited from RAAR algorithm.
-    :param display_win: pre-defined cover/window for comparing reconstruction results.
+    :param cstr_win: pre-defined cover/window for comparing reconstruction results.
     :param display: option to display the reconstruction results.
     :param save_dir: save reconstruction results to the given directory.
     :return: reconstructed complex transmittance of complex object and error metrics.
     """
-    # check directories for saving files
+    # check directories
     if save_dir is not None:
-        obj_fname = save_dir + 'sharp_plus_img_revy'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-    if display_win is None:
-        display_win = np.ones(init_obj_guess.shape)
+        os.makedirs(save_dir, exist_ok=True)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_obj_guess)
 
     # initialization
     probe = np.copy(probe_ref)
@@ -215,23 +198,15 @@ def sharp_plus_recon(init_obj_guess, diffraction_data, projection_coords, obj_re
         diffr_nrmse_ls.append(diffr_nrmse_val)
 
         # phase normalization and compute the nrmse error between reconstructed image and reference image
-        obj_revy = phase_norm(np.copy(obj_est) * display_win, np.copy(obj_ref) * display_win)
-        obj_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
+        obj_revy = phase_norm(np.copy(obj_est) * cstr_win, np.copy(obj_ref) * cstr_win)
+        obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
         obj_nrmse_ls.append(obj_nrmse_val)
         print('iter =', i, 'img_error =', obj_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
     # save recon results
-    save_tiff(obj_est, save_dir + 'iter_{}.tiff'.format(i + 1))
+    save_tiff(obj_est, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
     save_array(obj_nrmse_ls,  save_dir + 'obj_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
-
-    # display the reconstructed image and convergence plot
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='SHARP+', display_win=display_win, display=display, save_fname=obj_fname)
-    xlabel, ylabel, line_label = 'Number of iterations', 'object NRMSE', r'SHARP+ ($relax param$ = {})'.format(relax_pm)
-    plot_nrmse(obj_nrmse_ls, title='Convergence plot of SHARP+ algorithm', label=[xlabel, ylabel, line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_obj_nrmse')
-    plot_nrmse(diffr_nrmse_ls, title='Convergence plot of SHARP+ algorithm', label=[xlabel, 'diffraction NRMSE', line_label],
-               step_sz=15, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_diffr_nrmse')
 
     # return the result
     keys = ['obj_revy', 'obj_err', 'diffr_err']
@@ -242,7 +217,7 @@ def sharp_plus_recon(init_obj_guess, diffraction_data, projection_coords, obj_re
 
 
 def sharp_joint_recon(init_obj, init_probe, diffraction_data, projection_coords, obj_ref=None, probe_ref=None,
-                      num_iter=100, relax_pm=0.5, display_win=None, display=False, save_dir=None):
+                      num_iter=100, relax_pm=0.5, cstr_win=None, display=False, save_dir=None):
     """
     The SHARP is introduced in: https://doi.org/10.1107/S1600576716008074. The frame estimate update function:
         $z_j \gets 2 \beta P_{Q,j} P_{a,j} +(1 - 2 \beta) P_{a,j} + \beta ( P_{Q,j} - I)  z_j (*)$
@@ -254,22 +229,16 @@ def sharp_joint_recon(init_obj, init_probe, diffraction_data, projection_coords,
     :param probe_ref: ground truth complex probe.
     :param num_iter: number of iterations.
     :param relax_pm: relaxation parameter.
-    :param display_win: reconstruction window.
+    :param cstr_win: reconstruction window.
     :param display: display the reconstruction results.
     :param save_dir: path for saving reconstructed images.
     :return: reconstructed complex image and probe and nrmse.
     """
-    # check directories for saving files
-    if save_dir is None:
-        obj_fname = None
-        probe_fname = None
-    else:
-        obj_fname = save_dir + 'SHARP_img_revy'
-        probe_fname = save_dir + 'SHARP_probe_revy'
+    # check directories
+    if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
-
-    if display_win is None:
-        display_win = np.ones(init_obj.shape)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_obj)
 
     # initialization
     obj_nrmse_ls = []
@@ -326,22 +295,18 @@ def sharp_joint_recon(init_obj, init_probe, diffraction_data, projection_coords,
 
         # phase normalization and scale image to minimize the intensity difference
         if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * display_win, obj_ref * display_win)
+            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
+            img_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
+            obj_nrmse_ls.append(img_nrmse_val)
         else:
             obj_revy = obj_est
-            obj_ref = obj_revy
+
         if probe_ref is not None:
             probe_revy = phase_norm(np.copy(probe_est), probe_ref)
+            probe_nrmse_val = compute_nrmse(probe_revy, probe_ref)
+            probe_nrmse_ls.append(probe_nrmse_val)
         else:
             probe_revy = probe_est
-            probe_ref = probe_revy
-
-        # compute the nrmse error
-        img_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
-        obj_nrmse_ls.append(img_nrmse_val)
-        probe_nrmse_val = compute_nrmse(probe_revy, probe_ref, np.ones(probe_revy.shape))
-        probe_nrmse_ls.append(probe_nrmse_val)
-        print('iter =', i, 'img_nrmse =', img_nrmse_val, 'probe_nrmse =', probe_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
     # calculate time consumption
     elapsed_time = time.time() - start_time
@@ -354,10 +319,6 @@ def sharp_joint_recon(init_obj, init_probe, diffraction_data, projection_coords,
     save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
 
-    # display the reconstructed image and probe
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='SHARP', display_win=display_win, display=display, save_fname=obj_fname)
-    plot_cmplx_probe(probe_revy, probe_ref, img_title='SHARP', display=display, save_fname=probe_fname)
-
     # return the result
     keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
     vals = [obj_revy, probe_revy, obj_nrmse_ls, probe_nrmse_ls, diffr_nrmse_ls]
@@ -368,7 +329,7 @@ def sharp_joint_recon(init_obj, init_probe, diffraction_data, projection_coords,
 
 
 def sharp_plus_joint_recon(init_obj, init_probe, diffraction_data, projection_coords, obj_ref=None, probe_ref=None,
-                           num_iter=100, relax_pm=0.5, display_win=None, display=False, save_dir=None):
+                           num_iter=100, relax_pm=0.5, cstr_win=None, display=False, save_dir=None):
     """
     The SHARP+ is introduced in: https://arxiv.org/pdf/2111.14240.pdf. The frame estimate update function:
         $z_j \gets 2 \beta P_{Q,j} P_{a,j} +(1 - 2 \beta) P_{a,j} - \beta ( P_{Q,j} - I)  z_j (*)$
@@ -380,22 +341,16 @@ def sharp_plus_joint_recon(init_obj, init_probe, diffraction_data, projection_co
     :param probe_ref: ground truth complex probe.
     :param num_iter: number of iterations.
     :param relax_pm: relaxation parameter.
-    :param display_win: reconstruction window.
+    :param cstr_win: reconstruction window.
     :param display: display the reconstruction results.
     :param save_dir: path for saving reconstructed images.
     :return: reconstructed complex image and probe and nrmse.
     """
-    # check directories for saving files
-    if save_dir is None:
-        obj_fname = None
-        probe_fname = None
-    else:
-        obj_fname = save_dir + 'SHARP_plus_img_revy'
-        probe_fname = save_dir + 'SHARP_plus_probe_revy'
+    # check directories
+    if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
-
-    if display_win is None:
-        display_win = np.ones(init_obj.shape)
+    if cstr_win is None:
+        cstr_win = np.ones_like(init_obj)
 
     # initialization
     obj_nrmse_ls = []
@@ -452,22 +407,18 @@ def sharp_plus_joint_recon(init_obj, init_probe, diffraction_data, projection_co
 
         # phase normalization and scale image to minimize the intensity difference
         if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * display_win, obj_ref * display_win)
+            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
+            img_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
+            obj_nrmse_ls.append(img_nrmse_val)
         else:
             obj_revy = obj_est
-            obj_ref = obj_revy
+
         if probe_ref is not None:
             probe_revy = phase_norm(np.copy(probe_est), probe_ref)
+            probe_nrmse_val = compute_nrmse(probe_revy, probe_ref)
+            probe_nrmse_ls.append(probe_nrmse_val)
         else:
             probe_revy = probe_est
-            probe_ref = probe_revy
-
-        # compute the nrmse error
-        img_nrmse_val = compute_nrmse(obj_revy * display_win, obj_ref * display_win, display_win)
-        obj_nrmse_ls.append(img_nrmse_val)
-        probe_nrmse_val = compute_nrmse(probe_revy, probe_ref, np.ones(probe_revy.shape))
-        probe_nrmse_ls.append(probe_nrmse_val)
-        print('iter =', i, 'img_nrmse =', img_nrmse_val, 'probe_nrmse =', probe_nrmse_val, 'diffr_err =', diffr_nrmse_val)
 
     # calculate time consumption
     elapsed_time = time.time() - start_time
@@ -479,10 +430,6 @@ def sharp_plus_joint_recon(init_obj, init_probe, diffraction_data, projection_co
     save_array(obj_nrmse_ls, save_dir + 'obj_nrmse')
     save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
     save_array(diffr_nrmse_ls, save_dir + 'diffr_nrmse')
-
-    # display the reconstructed image and probe
-    plot_cmplx_obj(obj_revy, obj_ref, img_title='SHARP+', display_win=display_win, display=display, save_fname=obj_fname)
-    plot_cmplx_probe(probe_revy, probe_ref, img_title='SHARP+', display=display, save_fname=probe_fname)
 
     # return the result
     keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
