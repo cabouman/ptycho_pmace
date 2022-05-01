@@ -1,9 +1,9 @@
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
-import sys, os, pyfftw, torch, re, scico, random
+import sys, os, pyfftw, torch, re, scico
 import scico.linop.optics as op
-from utils.nrmse import *
-from utils.display import *
+from .display import *
+from .nrmse import *
 import pandas as pd
 import numpy as np
 from scipy import signal
@@ -15,10 +15,8 @@ def int2float(arg):
     :param arg: int argument.
     :return: floating numbers.
     """
-    if isinstance(arg, int):
-        output = arg.astype(np.float64)
-    else:
-        output = arg
+    output = arg.astype(np.float64) if isinstance(arg, int) else arg
+
     return output
 
 
@@ -28,10 +26,8 @@ def float2cmplx(arg):
     :param arg: float argument.
     :return: complex
     """
-    if isinstance(arg, float):
-        output = arg.astype(np.complex128)
-    else:
-        output = arg
+    output = arg.astype(np.complex128) if isinstance(arg, float) else arg
+
     return output
 
 
