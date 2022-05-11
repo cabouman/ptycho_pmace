@@ -294,41 +294,33 @@ def gen_init_obj(dp, coords, img_ref=None, probe_ref=None, gauss_kernel_std=10, 
     return output
 
 
-def gen_init_probe(obj_ref, probe_ref, coords, diffr, formation, sampling_interval=None,
-                   source_wavelength=0.140891, propagation_dist=4e2, gauss_kernel_std=2, display=False):
+def gen_init_probe(dp, coords, obj_ref=None, sampling_interval=None,
+                   source_wl=0.140891, propagation_dist=4e2, gauss_kernel_std=2, display=False):
     """
-    Function to generate initial guess for reconstruction.
-    :param obj_ref: complex object.
-    :param probe_ref: reference probe function.
+    Function to formulate initial guess of complex probe for joint reconstruction on ptychographic data.
+    :param dp: phaseless measurements (diffraction patterns).
     :param coords: coordinates of projections.
-    :param diffr: phaseless measurements (diffraction patterns).
-    :param formation: approach to generate initial guess.
+    :param obj_ref: ground truth complex object or reference images.
     :param sampling_interval: sampling interval at source plane.
-    :param source_wavelength: illumination wavelength.
+    :param source_wl: illumination wavelength.
     :param propagation_dist:propagation distance.
     :param gauss_kernel_std: standard deviation of Guassian kernel for removing high frequencies.
-    :param display: option to display the initial guess
-    :return:initialized probe function
+    :param display: option to display the initial guess.
+    :return: initialized complex probe.
     """
-
     if sampling_interval is None:
-        sampling_interval = 2 * source_wavelength
-    if formation == 'groundtruth' or formation == 'ground truth':
-        output = probe_ref
-    elif formation == 'formulated':
-        # considering init guess of object
-        temp = np.zeros(diffr.shape, dtype=np.complex128)
-        patch = img2patch(obj_ref, coords, diffr.shape)
-        for i in range(len(diffr)):
-            temp[i] = compute_ift(diffr[i]) / patch[i]
-        probe_guess = np.average(temp, 0)
-        num_agts, m, n = diffr.shape
-        fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=2 * np.pi / source_wavelength,
-                                       z=propagation_dist, pad_factor=1, jit=True)
-        # fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1,
-        #                                jit=True)
-        output = fres_op(probe_guess)
-        output = gaussian_filter(np.real(output), sigma=gauss_kernel_std) + 1j * gaussian_filter(np.imag(output), sigma=gauss_kernel_std)
+        sampling_interval = 2 * source_wl
+    # formulate init probe
+    temp = np.zeros(dp.shape, dtype=np.complex128)
+    patch = img2patch(obj_ref, coords, dp.shape)
+    for i in range(len(dp)):
+        temp[i] = compute_ift(dp[i]) / patch[i]
+    probe_guess = np.average(temp, 0)
+    num_agts, m, n = dp.shape
+    fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=2 * np.pi / source_wl, z=propagation_dist)
+    # fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1, jit=True)
+    output = fres_op(probe_guess)
+    output = gaussian_filter(np.real(output), sigma=gauss_kernel_std) + 1j * gaussian_filter(np.imag(output), sigma=gauss_kernel_std)
     if display:
         figure(num=None, figsize=(6.8, 2.4), dpi=100, facecolor='w', edgecolor='k')
         plt.subplot(121)
