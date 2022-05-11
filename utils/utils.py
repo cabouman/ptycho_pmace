@@ -251,38 +251,31 @@ def load_measurement(fpath, display=False):
     return output
 
 
-def gen_init_obj(img_ref, probe_ref, coords, measurement, formation, gauss_kernel_std=10, display=False):
+def gen_init_obj(dp, coords, img_ref=None, probe_ref=None, gauss_kernel_std=10, display=False):
     """
-    Function to generate initial guess of complex transmittance for reconstruction.
+    Function to formulate initial guess of complex object for reconstruction.
+    :param dp: intensity-only measurements (recorded diffraction patterns).
+    :param coords: coordinates of projections.
     :param img_ref: ground truth complex object or reference images.
     :param probe_ref: known or estimated complex probe function.
-    :param coords: coordinates of projections.
-    :param measurement: intensity-only measurements (recorded diffraction patterns).
-    :param formation: approach to generate initial guess.
     :param gauss_kernel_std: standard deviation of Gaussian kernel for low-pass filtering the initialized guess.
     :param display: option to display the initial guess of complex image.
     :return: formulated initial guess of complex transmittance of complex object.
     """
-    # initialization
-    num_agts, m, n = measurement.shape
-    if formation == 'groundtruth' or formation == 'ground truth':
-        output = img_ref
-    elif formation == 'formulated':
-        Ny = float(m * n)              # num of pixels in each measurement
-        Nd = float(m * n)              # num of pixels in probe function
-        Nx = float(m * n)              # num of pixels in each projection
-        Drms = np.sqrt(np.linalg.norm(probe_ref) / Nd)
-        patch_est = np.zeros(measurement.shape, dtype=np.complex128)      # estimate of each patch
-        for j in range(num_agts):
-            Yrms = np.sqrt(np.linalg.norm(measurement[j]) / Ny)
-            patch_est[j] = np.sqrt(Ny / Nx) * Yrms / Drms
-        norm = patch2img(np.ones(measurement.shape), coords, img_sz=img_ref.shape)
+    num_agts, m, n = dp.shape
+    Ny = float(m * n)              # num of pixels in each measurement
+    Nd = float(m * n)              # num of pixels in probe function
+    Nx = float(m * n)              # num of pixels in each projection
+    Drms = np.sqrt(np.linalg.norm(probe_ref) / Nd)
+    patch_est = np.zeros(dp.shape, dtype=np.complex128)      # estimate of each patch
+    for j in range(num_agts):
+        Yrms = np.sqrt(np.linalg.norm(dp[j]) / Ny)
+        patch_est[j] = np.sqrt(Ny / Nx) * Yrms / Drms
+        norm = patch2img(np.ones(dp.shape), coords, img_sz=img_ref.shape)
         obj_est = patch2img(patch_est, coords, img_sz=img_ref.shape, norm=norm)
         obj_est[obj_est == 0] = np.median(obj_est)
         # apply LPF to remove high frequencies
         output = gaussian_filter(np.abs(obj_est), sigma=gauss_kernel_std).astype(np.complex128)
-    else:
-        print('Error: The approach for creating initial guess does not exist!')
     if display:
         figure(num=None, figsize=(6.8, 2.4), dpi=100, facecolor='w', edgecolor='k')
         plt.subplot(121)
