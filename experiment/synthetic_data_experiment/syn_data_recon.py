@@ -8,7 +8,7 @@ import datetime as dt
 from shutil import copyfile
 import argparse, yaml
 
-print(root_dir)
+
 '''
 This file reconstructs complex transmittance image by processing the synthetic data with different probe spacing and 
 compares results from reconstruction approaches. 
@@ -76,7 +76,7 @@ def main():
         display_win = None
 
     for idx in range(len(probe_dist)):
-        # Obtain probe spacing d
+        # Obtain probe spacing
         d = probe_dist[idx]
 
         # Load intensity only measurements(data) from file and pre-process the data
