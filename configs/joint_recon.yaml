@@ -1,8 +1,8 @@
 data:
-  obj_dir: data/synthetic_noisy_data/ground_truth_img/realIC/SIM-generating_object.tiff
-  probe_dir: data/synthetic_noisy_data/ground_truth_img/realIC/SIM-generating_probe.tiff
+  obj_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_image.tiff
+  probe_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_probe.tiff
   data_dir: data/synthetic_noisy_data/probe_spacing_20/photon_rate_10000.0/
-  window_coords: [150, 511, 150, 511]
+  window_coords: [112, 912, 112, 912]
   display: True
 recon:
   num_iter: 100
