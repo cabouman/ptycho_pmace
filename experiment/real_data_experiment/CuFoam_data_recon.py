@@ -5,7 +5,6 @@ sys.path.append(str(root_dir))
 import argparse, yaml
 import datetime as dt
 from shutil import copyfile
-
 from ptycho_pmace.utils.utils import *
 from ptycho_pmace.ptycho import *
 
@@ -35,7 +34,6 @@ def main():
     obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
     probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
     data_dir = os.path.join(root_dir, config['data']['data_dir'])
-    init_guess_form = config['data']['init_guess_form']
     display = config['data']['display']
     window_coords = config['data']['window_coords']
     out_dir = os.path.join(root_dir, config['output']['out_dir'])
@@ -73,7 +71,7 @@ def main():
     projection_coords = get_proj_coords_from_data(scan_loc + probe_ref.shape[0]/2, diffraction_data)
 
     # Generate formulated initial guess for reconstruction
-    init_obj = gen_init_obj(obj_ref, probe_ref, projection_coords, diffraction_data, formation=init_guess_form, display=display)
+    init_obj = gen_init_obj(diffraction_data, projection_coords, obj_ref=obj_ref, probe_ref=probe_ref)
 
     # Produce the cover/window for comparison
     if window_coords is not None:
@@ -85,44 +83,46 @@ def main():
 
     # Reconstruction parameters
     num_iter = config['recon']['num_iter']
+    joint_recon = config['recon']['joint_recon']
 
     # ePIE recon
     obj_step_sz = config['ePIE']['obj_step_sz']
-    epie_dir = save_dir + config['ePIE']['out_dir'] + 'obj_step_sz_{}/'.format(obj_step_sz)
-    epie_result = pie.epie_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                 num_iter=num_iter, step_sz=obj_step_sz, cstr_win=display_win, save_dir=epie_dir)
+    epie_dir = save_dir + 'ePIE/obj_step_sz_{}/'.format(obj_step_sz)
+    epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
+                                 obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
+                                 joint_recon=joint_recon, cstr_win=display_win, save_dir=epie_dir)
 
     # Wirtinger Flow (WF) recon
-    wf_dir = save_dir + config['WF']['out_dir']
-    wf_result = wf.wf_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                            num_iter=num_iter, accel=False, cstr_win=display_win, save_dir=wf_dir)
+    wf_dir = save_dir + 'WF/'
+    wf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                            accel=False, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=wf_dir)
 
-
-    awf_dir = save_dir + config['AWF']['out_dir']
-    awf_result = wf.wf_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                             num_iter=num_iter, accel=True, cstr_win=display_win, save_dir=awf_dir)
+    # # Accelerated Wirtinger Flow (AWF) recon
+    awf_dir = save_dir + 'AWF/'
+    awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                             accel=True, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=awf_dir)
 
     # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
-    sharp_dir = save_dir + config['SHARP']['out_dir'] + 'relax_pm_{}/'.format(relax_pm)
-    sharp_result = sharp.sharp_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                     num_iter=num_iter, relax_pm=relax_pm, cstr_win=display_win, save_dir=sharp_dir)
+    sharp_result = sharp.sharp_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                     num_iter=num_iter, relax_pm=relax_pm, joint_recon=joint_recon, cstr_win=display_win,
+                                     save_dir=save_dir + 'SHARP/relax_pm_{}/'.format(relax_pm))
 
     # SHARP+ recon
-    relax_pm = config['SHARP_plus']['relax_pm']
-    sharp_plus_dir = save_dir + config['SHARP_plus']['out_dir'] + 'relax_pm_{}/'.format(relax_pm)
-    sharp_plus_result = sharp.sharp_plus_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                               num_iter=num_iter, relax_pm=relax_pm,
-                                               cstr_win=display_win, save_dir=sharp_plus_dir)
+    sharp_plus_pm = config['SHARP_plus']['relax_pm']
+    sharp_plus_dir = save_dir + 'SHARP_plus/relax_pm_{}/'.format(sharp_plus_pm)
+    sharp_plus_result = sharp.sharp_plus_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref,
+                                               probe_ref=probe_ref, num_iter=num_iter, relax_pm=sharp_plus_pm,
+                                               joint_recon=joint_recon, cstr_win=display_win, save_dir=sharp_plus_dir)
 
     # PMACE recon
     alpha = config['PMACE']['alpha']                   # noise-to-signal ratio
     rho = config['PMACE']['rho']                       # Mann averaging parameter
     probe_exp = config['PMACE']['probe_exponent']      # probe exponent
-    pmace_dir = save_dir + config['PMACE']['out_dir'] + 'alpha_{}_rho_{}_probe_exp_{}/'.format(alpha, rho, probe_exp)
-    pmace_result = pmace.pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                     num_iter=num_iter, obj_nsr_pm=alpha, rho=rho, probe_exp=probe_exp,
-                                     cstr_win=display_win, save_dir=pmace_dir)
+    pmace_dir = save_dir + 'PMACE/alpha_{}_rho_{}_probe_exp_{}/'.format(alpha, rho, probe_exp)
+    pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                     num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp, add_reg=False,
+                                     joint_recon=joint_recon, cstr_win=display_win, save_dir=pmace_dir)
 
     # reg-PMACE recon
     alpha = config['reg-PMACE']['alpha']
@@ -131,11 +131,11 @@ def main():
     reg_wgt = config['reg-PMACE']['reg_wgt']            # regularization weight
     noise_std = config['reg-PMACE']['noise_std']        # denoising parameter
     prior = config['reg-PMACE']['prior']                # prior model, eg. bm3d or DnCNN
-    reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir'] + 'reg_PMACE/reg_wgt_{}_noise_std_{}/'.format(reg_wgt, noise_std)
-    reg_pmace_result = pmace.reg_pmace_recon(init_obj, diffraction_data, projection_coords, obj_ref, probe_ref,
-                                             num_iter=num_iter, obj_nsr_pm=alpha, rho=rho, probe_exp=probe_exp,
-                                             reg_wgt=reg_wgt, noise_std=noise_std, prior_model=prior,
-                                             cstr_win=display_win, save_dir=reg_pmace_dir)
+    reg_pmace_dir = save_dir + 'reg_PMACE/reg_wgt_{}_noise_std_{}/'.format(reg_wgt, noise_std)
+    reg_pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                         num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp,
+                                         add_reg=True, reg_wgt=reg_wgt, noise_std=noise_std, prior=prior,
+                                         joint_recon=joint_recon, cstr_win=display_win, save_dir=reg_pmace_dir)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
@@ -144,7 +144,7 @@ def main():
 
     # Plot reconstructed images and compare with ground truth complex image
     plot_cmplx_img(pmace_result['obj_revy'], img_title='PMACE', ref_img=obj_ref,
-                   display_win=display_win, display=display, save_fname=reg_pmace_dir+'reconstructed_cmplx_img',
+                   display_win=display_win, display=display, save_fname=pmace_dir+'reconstructed_cmplx_img',
                    fig_sz=[8, 3], mag_vmax=2, mag_vmin=0, real_vmax=2, real_vmin=-0.5, imag_vmax=1.5, imag_vmin=-1.5)
     plot_cmplx_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', ref_img=obj_ref,
                    display_win=display_win, display=display, save_fname=reg_pmace_dir+'reconstructed_cmplx_img',
