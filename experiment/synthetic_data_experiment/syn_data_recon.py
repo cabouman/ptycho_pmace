@@ -39,8 +39,7 @@ def main():
     probe_ref = load_img(probe_dir)
 
     # Read recon settings from config file
-    init_guess_form = config['recon']['init_guess_form']
-    display = config['recon']['display']
+    joint_recon = config['recon']['joint_recon']
     window_coords = config['recon']['window_coords']
     num_iter = config['recon']['num_iter']
 
@@ -81,51 +80,54 @@ def main():
         d = probe_dist[idx]
 
         # Load intensity only measurements(data) from file and pre-process the data
-        diffract_data = load_measurement(data_dir + 'probe_spacing_{}/photon_rate_100000.0/frame_data/'.format(d), display=display)
+        diffraction_data = load_measurement(data_dir + 'probe_spacing_{}/photon_rate_10000.0/frame_data/'.format(d))
 
         # Load scan points
-        scan_loc_data = pd.read_csv(data_dir + 'probe_spacing_{}/photon_rate_100000.0/Translations.tsv.txt'.format(d),
+        scan_loc_data = pd.read_csv(data_dir + 'probe_spacing_{}/photon_rate_10000.0/Translations.tsv.txt'.format(d),
                                     sep=None, engine='python', header=0)
         scan_loc = scan_loc_data[['FCx', 'FCy']].to_numpy()
 
         # calculate coordinates of projections
-        projection_coords = get_proj_coords_from_data(scan_loc, diffract_data)
+        projection_coords = get_proj_coords_from_data(scan_loc, diffraction_data)
         # Generate formulated initial guess for reconstruction
-        init_obj = gen_init_obj(obj_ref, probe_ref, projection_coords, diffract_data, formation=init_guess_form, display=display)
+        init_obj = gen_init_obj(diffraction_data, projection_coords, obj_ref=obj_ref, probe_ref=probe_ref)
 
         # ePIE recon
-        epie_result = pie.epie_recon(init_obj, diffract_data, projection_coords, obj_ref, probe_ref,
-                                     num_iter=num_iter, step_sz=epie_pm[idx], cstr_win=display_win,
-                                     save_dir=save_dir + 'probe_spacing_{}/ePIE/step_sz_{}/'.format(d, epie_pm[idx]))
+        epie_dir = save_dir + 'probe_spacing_{}/ePIE/obj_step_sz_{}/'.format(d, epie_pm[idx])
+        epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
+                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=epie_pm[idx],
+                                     joint_recon=joint_recon, cstr_win=display_win, save_dir=epie_dir)
 
         # AWF recon
-        awf_result = wf.wf_recon(init_obj, diffract_data, projection_coords, obj_ref, probe_ref,
-                                 num_iter=num_iter, accel=True, cstr_win=display_win,
-                                 save_dir=save_dir + 'probe_spacing_{}/AWF/'.format(d))
+        awf_dir = save_dir + 'probe_spacing_{}/AWF/'.format(d)
+        awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                 accel=True, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=awf_dir)
 
         # SHARP recon
         sharp_dir = save_dir + 'probe_spacing_{}/SHARP/relax_pm_{}/'.format(d, sharp_pm[idx])
-        sharp_result = sharp.sharp_recon(init_obj, diffract_data, projection_coords, obj_ref, probe_ref,
-                                         num_iter=num_iter, relax_pm=sharp_pm[idx],
+        sharp_result = sharp.sharp_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                         num_iter=num_iter, relax_pm=sharp_pm[idx], joint_recon=joint_recon,
                                          cstr_win=display_win, save_dir=sharp_dir)
+
         # SHARP+ recon
         sharp_plus_dir = save_dir + 'probe_spacing_{}/SHARP_plus/relax_pm_{}/'.format(d, sharp_plus_pm[idx])
-        sharp_plus_result = sharp.sharp_plus_recon(init_obj, diffract_data, projection_coords, obj_ref, probe_ref,
-                                                   num_iter=num_iter, relax_pm=sharp_plus_pm[idx],
-                                                   cstr_win=display_win, save_dir=sharp_plus_dir)
+        sharp_plus_result = sharp.sharp_plus_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref,
+                                                   probe_ref=probe_ref, num_iter=num_iter, relax_pm=sharp_plus_pm[idx],
+                                                   joint_recon=joint_recon, cstr_win=display_win, save_dir=sharp_plus_dir)
+
 
         # PMACE recon
-        pmace_dir = save_dir + 'probe_spacing_{}/PMACE/NSR_{}/'.format(d, pmace_pm[idx])
-        pmace_result = pmace.pmace_recon(init_obj, diffract_data, projection_coords, obj_ref, probe_ref,
-                                         num_iter=num_iter, obj_nsr_pm=pmace_pm[idx], rho=0.5, probe_exp=1.25,
-                                         cstr_win=display_win, save_dir=pmace_dir)
+        pmace_dir = save_dir + 'probe_spacing_{}/PMACE/alpha_{}/'.format(d, pmace_pm[idx])
+        pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                         num_iter=num_iter, obj_pm=pmace_pm[idx], rho=0.5, probe_exp=1.5, add_reg=False,
+                                         joint_recon=joint_recon, cstr_win=display_win, save_dir=pmace_dir)
 
         # reg-PMACE recon
         reg_pmace_dir = save_dir + 'probe_spacing_{}/reg_PMACE/denoise_pm_{}/'.format(d, reg_psd[idx])
-        reg_PMACE_result = pmace.reg_pmace_recon(init_obj, diffract_data, projection_coords, obj_ref, probe_ref,
-                                                 num_iter=num_iter, obj_nsr_pm=pmace_pm[idx], rho=0.5, probe_exp=1.25,
-                                                 reg_wgt=0.6, noise_std=reg_psd[idx],
-                                                 cstr_win=display_win, save_dir=reg_pmace_dir)
+        reg_pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+                                             num_iter=num_iter, obj_pm=pmace_pm[idx], rho=0.5, probe_exp=1.5,
+                                             add_reg=True, reg_wgt=reg_wgt, noise_std=reg_psd[idx], prior='bm3d',
+                                             joint_recon=joint_recon, cstr_win=display_win, save_dir=reg_pmace_dir)
 
         # Convergence plots
         num_iter = np.asarray(np.arange(num_iter+1))
@@ -136,13 +138,13 @@ def main():
         plt.semilogy(num_iter, np.insert(sharp_result, 0, init_err), 'C3', label=r'SHARP')
         plt.semilogy(num_iter, np.insert(sharp_plus_result, 0, init_err), 'C2', label=r'SHARP+')
         plt.semilogy(num_iter, np.insert(pmace_result, 0, init_err), 'C1', label=r'PMACE')
-        plt.semilogy(num_iter, np.insert(reg_PMACE_result, 0, init_err), 'C0', label=r'reg-PMACE')
+        plt.semilogy(num_iter, np.insert(reg_pmace_result, 0, init_err), 'C0', label=r'reg-PMACE')
         plt.ylabel('NRMSE (in log scale) ')
         plt.xlabel('Number of iterations')
         plt.legend(loc='best')
         plt.title('Convergence plots (probe_spacing = {})'.format(d))
         plt.grid(True)
-        plt.savefig(save_dir + 'probe_spacing_{}/photon_rate_100000.0/convergence_plot'.format(d))
+        plt.savefig(save_dir + 'probe_spacing_{}/photon_rate_10000.0/convergence_plot'.format(d))
         plt.clf()
 
     # Save config file to output directory
