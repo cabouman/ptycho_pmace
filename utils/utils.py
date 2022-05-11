@@ -134,7 +134,6 @@ def gen_syn_data(obj, probe, scan_coords, num_agts, add_noise=True, photon_rate=
     :param save_dir: save generated diffraction patterns to given directory.
     :return: simulated intensity data.
     """
-
     # initialization
     m, n = probe.shape
     # extract patches x_j from full-sized object
@@ -150,8 +149,6 @@ def gen_syn_data(obj, probe, scan_coords, num_agts, add_noise=True, photon_rate=
         expected_photon_rate = noiseless_data * photon_rate / peak_signal_val
         # poisson random values realization
         diffr_in_photon_ct = np.random.poisson(expected_photon_rate, (num_agts, m, n))
-        # # convert to floating numbers
-        # noisy_data = diffr_in_photon_ct * peak_signal_val / photon_rate
         # add dark current noise
         noisy_data = diffr_in_photon_ct + np.random.poisson(lam=shot_noise_pm, size=(num_agts, m, n))
         # return the numbers
@@ -464,6 +461,12 @@ def save_array(arr, save_dir):
 
 
 def get_proj_coords_from_data(scan_loc, diffraction_data):
+    """
+    Function to obtain projection coordinates from scan points.
+    :param scan_loc: scan points.
+    :param diffraction_data: recorded diffraction patterns.
+    :return: projection coordinates.
+    """
     num_agts, m, n = diffraction_data.shape
     rounded_scan_loc = np.round(scan_loc)
     projection_coords = np.zeros((num_agts, 4), dtype=int)
