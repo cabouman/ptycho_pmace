@@ -32,7 +32,11 @@ It contains configuration files for generating synthetic data and reconstruction
 2. In /configs/demo_pmace.yaml, specify data directory for input and output directory for saving reconstruction results.
 3. Run /demo/demo_pmace.py.
 
+## Related publications
+For more information on the methods implemented in this code, please see:
+
+Q. Zhai, B. Wohlberg, G. T. Buzzard and C. A. Bouman, "Projected Multi-Agent Consensus Equilibrium for Ptychographic Image Reconstruction," 2021 55th Asilomar Conference on Signals, Systems, and Computers, 2021, pp. 1694-1698, doi: 10.1109/IEEECONF53345.2021.9723357.
 
 ## Other
-Constructing this repository is a work in progress. The details and documentation remain to be improved, and the code needs to be cleared and modified. Please let me know if you have any suggestions or questions.
+Constructing this repository is a work in progress. The details and documentation remain to be improved, and the code needs to be cleaned and improved. Please let me know if you have any suggestions or questions.
 
