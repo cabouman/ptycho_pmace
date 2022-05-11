@@ -42,7 +42,6 @@ def epie_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, prob
     print('ePIE recon starts ...')
     start_time = time.time()
     for i in range(num_iter):
-        print('iter=', i)
         random.shuffle(seq)
         for j in seq:
             crd0, crd1, crd2, crd3 = project_coords[j, 0], project_coords[j, 1], project_coords[j, 2], project_coords[j, 3]
