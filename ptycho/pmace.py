@@ -127,7 +127,7 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
     dp_nrmse_ls = []
 
     # PMACE reconstruction
-    print('PMACE recon starts ...')
+    print('{} recon starts ...'.format(approach))
     start_time = time.time()
     for i in range(num_iter):
         # w <- F(v; w)
