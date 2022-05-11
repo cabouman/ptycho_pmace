@@ -51,15 +51,8 @@ def phase_norm(img, img_ref):
     :return: the phase normalized reconstruction.
     """
     # phase normalization
-    img_size = np.shape(img)
-    # vectorize images
-    img_vec = np.reshape(img, -1)
-    ref_img_vec = np.reshape(img_ref, -1)
-    # calculate the complex scaler
-    cmplx_scaler = np.sum(np.dot(np.conj(img_vec), ref_img_vec)) / (np.linalg.norm(img_vec) ** 2)
-    # obtain the normalized image
-    output = cmplx_scaler * img_vec
-    output.resize(img_size)
+    cmplx_scaler = np.sum(np.conj(img) * img_ref) / (np.linalg.norm(img) ** 2)
+    output = cmplx_scaler * img
 
     return output
 
