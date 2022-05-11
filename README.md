@@ -28,7 +28,7 @@ It contains configuration files for generating synthetic data and reconstruction
 
 
 ## Runing the demo
-1. Download ground truth images and synthetic data at: [Google Drive](https://drive.google.com/drive/folders/1zB9ANOWs3e_mDc7_hputzLKOpG8ThqNo?usp=sharing).
+1. Download ground truth images and synthetic data at: [Google Drive](https://drive.google.com/drive/folders/1feA5LdkEjVJhqhyFRu7ErgqwKa9Nbkxp?usp=sharing).
 2. In /configs/demo_pmace.yaml, specify data directory for input and output directory for saving reconstruction results.
 3. Run /demo/demo_pmace.py.
 
