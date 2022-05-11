@@ -89,7 +89,7 @@ def main():
     # ePIE recon
     obj_step_sz = config['ePIE']['obj_step_sz']
     epie_dir = save_dir + config['ePIE']['out_dir'] + 'obj_step_sz_{}/'.format(obj_step_sz)
-    epie_result = pie.eepie_recon(diffraction_data, projection_coords, init_obj=init_obj,
+    epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
                                   obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
                                   joint_recon=False, cstr_win=display_win, save_dir=epie_dir)
 
