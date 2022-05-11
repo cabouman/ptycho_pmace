@@ -5,7 +5,6 @@ sys.path.append(str(root_dir))
 import os, argparse, yaml
 import datetime as dt
 from shutil import copyfile
-
 from ptycho_pmace.utils.utils import *
 from ptycho_pmace.ptycho import *
 
@@ -37,8 +36,6 @@ def main():
     obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
     probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
     data_dir = os.path.join(root_dir, config['data']['data_dir'])
-    init_obj_form = config['data']['init_obj_form']
-    init_probe_form = config['data']['init_probe_form']
     display = config['data']['display']
     window_coords = config['data']['window_coords']
     out_dir = os.path.join(root_dir, config['output']['out_dir'])
@@ -65,6 +62,13 @@ def main():
     obj_ref = load_img(obj_dir)
     probe_ref = load_img(probe_dir)
 
+    # display ground truth images
+    plot_cmplx_img(obj_ref, img_title='GT obj', ref_img=obj_ref, display=display,
+                   mag_vmax=1, mag_vmin=.5, phase_vmax=0, phase_vmin=-np.pi/4,
+                   real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
+    plot_cmplx_img(probe_ref, img_title='GT probe', ref_img=probe_ref, display=display,
+                   mag_vmax=100, mag_vmin=0, real_vmax=30, real_vmin=-70, imag_vmax=30, imag_vmin=-70)
+
     # Load intensity only measurements(data) from file and pre-process the data
     diffract_data = load_measurement(data_dir + 'frame_data/', display=display)
 
@@ -77,14 +81,15 @@ def main():
 
     # # Generate formulated initial guess for reconstruction
     init_obj = np.ones(obj_ref.shape, dtype=np.complex128)
-    init_probe = gen_init_probe(init_obj, probe_ref, projection_coords, diffract_data, formation=init_probe_form, display=display)
-    init_obj = gen_init_obj(init_obj, init_probe, projection_coords, diffract_data, formation=init_obj_form, display=display)
+    init_probe = gen_init_probe(diffract_data, projection_coords, obj_ref=init_obj, display=display)
+    init_obj = gen_init_obj(diffract_data, projection_coords, obj_ref=init_obj, probe_ref=init_probe, display=display)
 
     # display ground truth images and initial guesses for reconstruction.
-    plot_cmplx_obj(obj_ref, obj_ref, img_title='gt obj', display_win=None, display=display)
-    plot_cmplx_probe(probe_ref, probe_ref, img_title='gt probe', display=display)
-    plot_cmplx_obj(init_obj, init_obj, img_title='init obj', display_win=None, display=display)
-    plot_cmplx_probe(init_probe, init_probe, img_title='init probe', display=display)
+    plot_cmplx_img(init_obj, img_title='init obj', ref_img=init_obj, display=display,
+                   mag_vmax=1, mag_vmin=.5, phase_vmax=0, phase_vmin=-np.pi/4,
+                   real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
+    plot_cmplx_img(init_probe, img_title='init probe', ref_img=init_probe, display=display,
+                   mag_vmax=90, mag_vmin=0, real_vmax=30, real_vmin=-70, imag_vmax=15, imag_vmin=-60)
 
     # Produce the cover/window for comparison
     if window_coords is not None:
@@ -101,69 +106,79 @@ def main():
     obj_step_sz = config['ePIE']['obj_step_sz']
     probe_step_sz = config['ePIE']['probe_step_sz']
     epie_dir = save_dir + config['ePIE']['out_dir']
-    epie_result = pie.epie_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                       num_iter=num_iter, obj_step_sz=obj_step_sz, probe_step_sz=probe_step_sz,
-                                       cstr_win=display_win, save_dir=epie_dir)
+    epie_result = pie.epie_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                                 obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
+                                 probe_step_sz=probe_step_sz, joint_recon=True, cstr_win=display_win, save_dir=epie_dir)
 
     # WF recon
     wf_dir = save_dir + config['WF']['out_dir']
-    wf_result = wf.wf_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                  num_iter=num_iter, accel=False, cstr_win=display_win, save_dir=wf_dir)
+    wf_result = wf.wf_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                            obj_ref=obj_ref, probe_ref=probe_ref, accel=False, num_iter=num_iter, joint_recon=True,
+                            cstr_win=display_win, save_dir=wf_dir)
 
-    # AWF
+    # AWF recon
     awf_dir = save_dir + config['AWF']['out_dir']
-    awf_result = wf.wf_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                   num_iter=num_iter, accel=True, cstr_win=display_win, save_dir=awf_dir)
+    awf_result = wf.wf_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                             obj_ref=obj_ref, probe_ref=probe_ref, accel=True, num_iter=num_iter, joint_recon=True,
+                             cstr_win=display_win, save_dir=awf_dir)
 
-    # SHARP
+    # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
     sharp_dir = save_dir + config['SHARP']['out_dir']
-    sharp_result = sharp.sharp_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                           num_iter=num_iter, relax_pm=relax_pm, cstr_win=display_win, save_dir=sharp_dir)
+    sharp_result = sharp.sharp_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, relax_pm=relax_pm,
+                                     joint_recon=True, cstr_win=display_win, save_dir=sharp_dir)
+
 
     # SHARP_plus
     relax_pm = config['SHARP_plus']['relax_pm']
     srp_plus_dir = save_dir + config['SHARP_plus']['out_dir']
-    sharp_plus_result = sharp.sharp_plus_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                                     num_iter=num_iter, relax_pm=relax_pm, cstr_win=display_win, save_dir=srp_plus_dir)
+    sharp_plus_result = sharp.sharp_plus_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                                               obj_ref=obj_ref, probe_ref=probe_ref,  num_iter=num_iter, relax_pm=relax_pm,
+                                               joint_recon=True, cstr_win=display_win, save_dir=srp_plus_dir)
 
     # PMACE
-    obj_param = config['PMACE']['obj_noisetosignal_ratio']
-    probe_param = config['PMACE']['probe_noisetosignal_ratio']
+    obj_pm = config['PMACE']['obj_noisetosignal_ratio']
+    probe_pm = config['PMACE']['probe_noisetosignal_ratio']
     rho = config['PMACE']['rho']
     probe_exp = config['PMACE']['probe_exponent']
     obj_exp = config['PMACE']['obj_exponent']
     pmace_dir = save_dir + config['PMACE']['out_dir']
-    pmace_result = pmace.pmace_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                           num_iter=num_iter, obj_param=obj_param, probe_param=probe_param, rho=rho,
-                                           probe_exp=probe_exp, obj_exp=obj_exp, cstr_win=display_win, save_dir=pmace_dir)
+    pmace_result = pmace.pmace_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter,
+                                     obj_pm=obj_pm, probe_pm=probe_pm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
+                                     add_reg=False, joint_recon=True, cstr_win=display_win, save_dir=pmace_dir)
+
     #
     # PMACE + serial regularization
-    obj_param = config['reg-PMACE']['obj_noisetosignal_ratio']
-    probe_param = config['reg-PMACE']['probe_noisetosignal_ratio']
+    obj_pm = config['reg-PMACE']['obj_noisetosignal_ratio']
+    probe_pm = config['reg-PMACE']['probe_noisetosignal_ratio']
     rho = config['reg-PMACE']['rho']
     probe_exp = config['reg-PMACE']['probe_exp']
     obj_exp = config['reg-PMACE']['obj_exp']
     reg_wgt = config['reg-PMACE']['reg_wgt']
     noise_std = config['reg-PMACE']['noise_std']
-    prior_model = config['reg-PMACE']['prior_model']
-    reg_dir = save_dir + config['reg-PMACE']['out_dir']
-    reg_pmace_result = pmace.reg_pmace_joint_recon(init_obj, init_probe, diffract_data, projection_coords, obj_ref, probe_ref,
-                                                   num_iter=num_iter, obj_param=obj_param, probe_param=probe_param, rho=rho,
-                                                   probe_exp=probe_exp, obj_exp=obj_exp, reg_wgt=reg_wgt, noise_std=noise_std,
-                                                   prior_model=prior_model, cstr_win=display_win, save_dir=reg_dir)
+    prior = config['reg-PMACE']['prior_model']
+    reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir']
+    reg_pmace_result = pmace.pmace_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
+                                         obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter,
+                                         obj_pm=obj_pm, probe_pm=probe_pm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
+                                         add_reg=True, reg_wgt=reg_wgt, noise_std=noise_std, prior=prior,
+                                         joint_recon=True, cstr_win=display_win, save_dir=reg_pmace_dir)
+
     # Save config file to output directory
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     copyfile(args.config_dir, save_dir + 'config.yaml')
 
     # Plot reconstructed images and compare with ground truth complex image
-    plot_cmplx_img(pmace_result['obj_revy'], img_title='PMACE', ref_img=obj_ref,
-                   display_win=display_win, display=display, save_fname=reg_dir+'reconstructed_cmplx_img',
-                   fig_sz=[8, 3], mag_vmax=1.05, mag_vmin=.85, real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
-    plot_cmplx_img(reg_pmace_result['probe_revy'], img_title='reg-PMACE', ref_img=probe_ref,
-                   display_win=display_win, display=display, save_fname=reg_dir+'reconstructed_cmplx_probe',
-                   fig_sz=[8, 3], mag_vmax=100, mag_vmin=0, real_vmax=30, real_vmin=-70, imag_vmax=30, imag_vmin=-70)
+    plot_cmplx_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', ref_img=obj_ref,
+                   display_win=display_win, display=display, save_fname=reg_pmace_dir + 'reconstructed_cmplx_img',
+                   mag_vmax=1, mag_vmin=.5, phase_vmax=0, phase_vmin=-np.pi/4,
+                   real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
+    plot_cmplx_img(reg_pmace_result['probe_revy'], img_title='reg-PMACE', ref_img=probe_ref, display=display,
+                   save_fname=reg_pmace_dir + 'reconstructed_cmplx_probe',
+                   mag_vmax=100, mag_vmin=0, real_vmax=30, real_vmin=-70, imag_vmax=30, imag_vmin=-70)
 
     # Convergence plots
     xlabel, ylabel = 'Number of iteration', 'NRMSE value in log scale'
