@@ -35,6 +35,7 @@ It contains configuration files for generating synthetic data and reconstruction
 ## Related publications
 For more information on the methods implemented in this code, please see:
 
+[paper link](https://ieeexplore.ieee.org/document/9723357)
 Q. Zhai, B. Wohlberg, G. T. Buzzard and C. A. Bouman, "Projected Multi-Agent Consensus Equilibrium for Ptychographic Image Reconstruction," 2021 55th Asilomar Conference on Signals, Systems, and Computers, 2021, pp. 1694-1698, doi: 10.1109/IEEECONF53345.2021.9723357.
 
 ## Other
