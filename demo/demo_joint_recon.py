@@ -84,13 +84,6 @@ def main():
     init_probe = gen_init_probe(diffract_data, projection_coords, obj_ref=init_obj, display=display)
     init_obj = gen_init_obj(diffract_data, projection_coords, obj_ref=init_obj, probe_ref=init_probe, display=display)
 
-    # display ground truth images and initial guesses for reconstruction.
-    plot_cmplx_img(init_obj, img_title='init obj', ref_img=init_obj, display=display,
-                   mag_vmax=1, mag_vmin=.5, phase_vmax=0, phase_vmin=-np.pi/4,
-                   real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
-    plot_cmplx_img(init_probe, img_title='init probe', ref_img=init_probe, display=display,
-                   mag_vmax=90, mag_vmin=0, real_vmax=30, real_vmin=-70, imag_vmax=15, imag_vmin=-60)
-
     # Produce the cover/window for comparison
     if window_coords is not None:
         xmin, xmax, ymin, ymax = window_coords[0], window_coords[1], window_coords[2], window_coords[3]
