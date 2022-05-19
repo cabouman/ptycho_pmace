@@ -259,20 +259,13 @@ def gen_init_obj(dp, coords, obj_ref=None, probe_ref=None, gauss_kernel_std=10, 
     :param display: option to display the initial guess of complex image.
     :return: formulated initial guess of complex transmittance of complex object.
     """
-    num_agts, m, n = dp.shape
-    Ny = float(m * n)              # num of pixels in each measurement
-    Nd = float(m * n)              # num of pixels in probe function
-    Nx = float(m * n)              # num of pixels in each projection
-    Drms = np.sqrt(np.linalg.norm(probe_ref) / Nd)
-    patch_est = np.zeros(dp.shape, dtype=np.complex128)      # estimate of each patch
-    for j in range(num_agts):
-        Yrms = np.sqrt(np.linalg.norm(dp[j]) / Ny)
-        patch_est[j] = np.sqrt(Ny / Nx) * Yrms / Drms
-        norm = patch2img(np.ones(dp.shape), coords, img_sz=obj_ref.shape)
-        obj_est = patch2img(patch_est, coords, img_sz=obj_ref.shape, norm=norm)
-        obj_est[obj_est == 0] = np.median(obj_est)
-        # apply LPF to remove high frequencies
-        output = gaussian_filter(np.abs(obj_est), sigma=gauss_kernel_std).astype(np.complex128)
+    patch_est = [[np.sqrt(np.linalg.norm(dp[j]) / np.linalg.norm(probe_ref))] * np.ones_like(probe_ref)
+                 for j in range(len(dp))]
+    norm = patch2img(np.ones_like(dp), coords, img_sz=obj_ref.shape)
+    obj_est = patch2img(patch_est, coords, img_sz=obj_ref.shape, norm=norm)
+    obj_est[obj_est == 0] = np.median(obj_est)
+    # apply LPF to remove high frequencies
+    output = gaussian_filter(np.abs(obj_est), sigma=gauss_kernel_std).astype(np.complex128)
     if display:
         figure(num=None, figsize=(6.8, 2.4), dpi=100, facecolor='w', edgecolor='k')
         plt.subplot(121)
