@@ -21,6 +21,14 @@ def build_parser():
     return parser
 
 
+def plot_CuFoam_img(cmplx_img, img_title, display_win=None, display=False, save_dir=None):
+    """ Function to plot reconstruction results in this experiment. """
+    save_fname = None if (save_dir is None) else save_dir + 'recon_cmplx_img'
+    plot_cmplx_img(cmplx_img, img_title=img_title, ref_img=None,
+                   display_win=display_win, display=display, save_fname=save_fname,
+                   fig_sz=[8, 3], mag_vmax=2, mag_vmin=0, real_vmax=1.9, real_vmin=-1.3, imag_vmax=1.3, imag_vmin=-1.9)
+
+
 def main():
     # Arguments
     parser = build_parser()
@@ -68,7 +76,7 @@ def main():
     scan_loc = scan_loc_data[['FCx', 'FCy']].to_numpy()
 
     # calculate the coordinates of projections
-    projection_coords = get_proj_coords_from_data(scan_loc + probe_ref.shape[0]/2, diffraction_data)
+    projection_coords = get_proj_coords_from_data(scan_loc, diffraction_data)
 
     # Generate formulated initial guess for reconstruction
     init_obj = gen_init_obj(diffraction_data, projection_coords, obj_ref=obj_ref, probe_ref=probe_ref)
@@ -76,10 +84,10 @@ def main():
     # Produce the cover/window for comparison
     if window_coords is not None:
         xmin, xmax, ymin, ymax = window_coords[0], window_coords[1], window_coords[2], window_coords[3]
-        display_win = np.zeros(init_obj.shape)
-        display_win[xmin:xmax, ymin:ymax] = 1
+        cstr_win = np.zeros(init_obj.shape)
+        cstr_win[xmin:xmax, ymin:ymax] = 1
     else:
-        display_win = None
+        cstr_win = None
 
     # Reconstruction parameters
     num_iter = config['recon']['num_iter']
@@ -90,30 +98,41 @@ def main():
     epie_dir = save_dir + 'ePIE/obj_step_sz_{}/'.format(obj_step_sz)
     epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
                                  obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
-                                 joint_recon=joint_recon, cstr_win=display_win, save_dir=epie_dir)
+                                 joint_recon=joint_recon, cstr_win=cstr_win, save_dir=epie_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(epie_result['obj_revy'], img_title='ePIE', display_win=cstr_win, display=display, save_dir=epie_dir)
 
     # Wirtinger Flow (WF) recon
     wf_dir = save_dir + 'WF/'
     wf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
-                            accel=False, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=wf_dir)
+                            accel=False, num_iter=num_iter, joint_recon=joint_recon, cstr_win=cstr_win, save_dir=wf_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(wf_result['obj_revy'], img_title='WF', display_win=cstr_win, display=display, save_dir=wf_dir)
 
     # # Accelerated Wirtinger Flow (AWF) recon
     awf_dir = save_dir + 'AWF/'
     awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
-                             accel=True, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=awf_dir)
+                             accel=True, num_iter=num_iter, joint_recon=joint_recon, cstr_win=cstr_win, save_dir=awf_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(awf_result['obj_revy'], img_title='AWF', display_win=cstr_win, display=display, save_dir=awf_dir)
 
     # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
+    sharp_dir = save_dir + 'SHARP/relax_pm_{}/'.format(relax_pm)
     sharp_result = sharp.sharp_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
-                                     num_iter=num_iter, relax_pm=relax_pm, joint_recon=joint_recon, cstr_win=display_win,
-                                     save_dir=save_dir + 'SHARP/relax_pm_{}/'.format(relax_pm))
+                                     num_iter=num_iter, relax_pm=relax_pm, joint_recon=joint_recon, cstr_win=cstr_win,
+                                     save_dir=sharp_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(sharp_result['obj_revy'], img_title='SHARP', display_win=cstr_win, display=display, save_dir=sharp_dir)
 
     # SHARP+ recon
     sharp_plus_pm = config['SHARP_plus']['relax_pm']
     sharp_plus_dir = save_dir + 'SHARP_plus/relax_pm_{}/'.format(sharp_plus_pm)
     sharp_plus_result = sharp.sharp_plus_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref,
                                                probe_ref=probe_ref, num_iter=num_iter, relax_pm=sharp_plus_pm,
-                                               joint_recon=joint_recon, cstr_win=display_win, save_dir=sharp_plus_dir)
+                                               joint_recon=joint_recon, cstr_win=cstr_win, save_dir=sharp_plus_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(sharp_plus_result['obj_revy'], img_title='SHARP', display_win=cstr_win, display=display, save_dir=sharp_plus_dir)
 
     # PMACE recon
     alpha = config['PMACE']['alpha']                   # noise-to-signal ratio
@@ -122,7 +141,10 @@ def main():
     pmace_dir = save_dir + 'PMACE/alpha_{}_rho_{}_probe_exp_{}/'.format(alpha, rho, probe_exp)
     pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                                      num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp, add_reg=False,
-                                     joint_recon=joint_recon, cstr_win=display_win, save_dir=pmace_dir)
+                                     joint_recon=joint_recon, cstr_win=cstr_win, save_dir=pmace_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(pmace_result['obj_revy'], img_title='PMACE', display_win=cstr_win, display=display,
+                    save_dir=pmace_dir)
 
     # reg-PMACE recon
     alpha = config['reg-PMACE']['alpha']
@@ -135,20 +157,16 @@ def main():
     reg_pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                                          num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp,
                                          add_reg=True, reg_wgt=reg_wgt, noise_std=noise_std, prior=prior,
-                                         joint_recon=joint_recon, cstr_win=display_win, save_dir=reg_pmace_dir)
+                                         joint_recon=joint_recon, cstr_win=cstr_win, save_dir=reg_pmace_dir)
+    # Plot reconstructed image
+    plot_CuFoam_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', display_win=cstr_win, display=display,
+                    save_dir=reg_pmace_dir)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     copyfile(args.config_dir, save_dir + 'config.yaml')
 
-    # Plot reconstructed images and compare with ground truth complex image
-    plot_cmplx_img(pmace_result['obj_revy'], img_title='PMACE', ref_img=obj_ref,
-                   display_win=display_win, display=display, save_fname=pmace_dir+'reconstructed_cmplx_img',
-                   fig_sz=[8, 3], mag_vmax=2, mag_vmin=0, real_vmax=2, real_vmin=-0.5, imag_vmax=1.5, imag_vmin=-1.5)
-    plot_cmplx_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', ref_img=obj_ref,
-                   display_win=display_win, display=display, save_fname=reg_pmace_dir+'reconstructed_cmplx_img',
-                   fig_sz=[8, 3], mag_vmax=2, mag_vmin=0, real_vmax=2, real_vmin=-0.5, imag_vmax=1.5, imag_vmin=-1.5)
 
     # Convergence plots
     xlabel, ylabel = 'Number of iteration', 'NRMSE value in log scale'
