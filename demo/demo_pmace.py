@@ -35,7 +35,6 @@ def main():
     obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
     probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
     data_dir = os.path.join(root_dir, config['data']['data_dir'])
-    init_guess_form = config['data']['init_guess_form']
     display = config['data']['display']
     window_coords = config['data']['window_coords']
     out_dir = os.path.join(root_dir, config['output']['out_dir'])
@@ -83,6 +82,14 @@ def main():
     else:
         display_win = None
 
+    def plot_synthetic_img(cmplx_img, img_title, ref_img, display_win=None, display=False, save_dir=None):
+        """ Function to plot reconstruction results in this experiment. """
+        save_fname = None if (save_dir is None) else save_dir + 'recon_cmplx_img'
+        plot_cmplx_img(cmplx_img, img_title=img_title, ref_img=ref_img,
+                       display_win=display_win, display=display, save_fname=save_fname,
+                       fig_sz=[8, 3], mag_vmax=1, mag_vmin=0.5, phase_vmax=0, phase_vmin=-np.pi/4,
+                       real_vmax=1.1, real_vmin=0.8, imag_vmax=0, imag_vmin=-0.6)
+
     # Reconstruction parameters
     num_iter = config['recon']['num_iter']
 
@@ -90,23 +97,36 @@ def main():
     obj_step_sz = config['ePIE']['obj_step_sz']
     epie_dir = save_dir + config['ePIE']['out_dir'] + 'obj_step_sz_{}/'.format(obj_step_sz)
     epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
-                                  obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
-                                  joint_recon=False, cstr_win=display_win, save_dir=epie_dir)
+                                 obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
+                                 joint_recon=False, cstr_win=display_win, save_dir=epie_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(epie_result['obj_revy'], img_title='ePIE', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=epie_dir)
 
     # Wirtinger Flow (WF) recon
     wf_dir = save_dir + config['WF']['out_dir']
     wf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                             accel=False, num_iter=num_iter, joint_recon=False, cstr_win=display_win, save_dir=wf_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(wf_result['obj_revy'], img_title='WF', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=wf_dir)
 
+    # Acclerated Wirtinger Flow (AWF) recon
     awf_dir = save_dir + config['AWF']['out_dir']
     awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                              accel=True, num_iter=num_iter, joint_recon=False, cstr_win=display_win, save_dir=awf_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(awf_result['obj_revy'], img_title='AWF', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=awf_dir)
 
     # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
     sharp_dir = save_dir + config['SHARP']['out_dir'] + 'relax_pm_{}/'.format(relax_pm)
     sharp_result = sharp.sharp_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                                      num_iter=num_iter, relax_pm=relax_pm, joint_recon=False, cstr_win=display_win, save_dir=sharp_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(sharp_result['obj_revy'], img_title='SHARP', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=sharp_dir)
 
     # SHARP+ recon
     relax_pm = config['SHARP_plus']['relax_pm']
@@ -114,6 +134,9 @@ def main():
     sharp_plus_result = sharp.sharp_plus_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref,
                                                probe_ref=probe_ref, num_iter=num_iter, relax_pm=relax_pm,
                                                joint_recon=False, cstr_win=display_win, save_dir=sharp_plus_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(sharp_plus_result['obj_revy'], img_title='SHARP+', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=sharp_plus_dir)
 
     # PMACE recon
     alpha = config['PMACE']['alpha']                   # noise-to-signal ratio
@@ -123,6 +146,9 @@ def main():
     pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                                      num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp, add_reg=False,
                                      joint_recon=False, cstr_win=display_win, save_dir=pmace_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(pmace_result['obj_revy'], img_title='PMACE', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=pmace_dir)
 
     # reg-PMACE recon
     alpha = config['reg-PMACE']['alpha']
@@ -136,21 +162,14 @@ def main():
                                          probe_ref=probe_ref, num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp,
                                          add_reg=True, reg_wgt=reg_wgt, noise_std=noise_std, prior=prior,
                                          joint_recon=False, cstr_win=display_win, save_dir=reg_pmace_dir)
+    # Plot reconstructed image
+    plot_synthetic_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', ref_img=obj_ref,
+                       display_win=display_win, display=display, save_dir=reg_pmace_dir)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     copyfile(args.config_dir, save_dir + 'config.yaml')
-
-    # Plot reconstructed images and compare with ground truth complex image
-    plot_cmplx_img(pmace_result['obj_revy'], img_title='PMACE', ref_img=obj_ref,
-                   display_win=display_win, display=True, save_fname=pmace_dir+'reconstructed_cmplx_img',
-                   fig_sz=[8, 3], mag_vmax=1, mag_vmin=.5, phase_vmax=0, phase_vmin=-np.pi/4,
-                   real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
-    plot_cmplx_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', ref_img=obj_ref,
-                   display_win=display_win, display=True, save_fname=reg_pmace_dir+'reconstructed_cmplx_img',
-                   fig_sz=[8, 3], mag_vmax=1, mag_vmin=.5, phase_vmax=0, phase_vmin=-np.pi/4,
-                   real_vmax=1.1, real_vmin=.8, imag_vmax=0, imag_vmin=-0.6)
 
     # Convergence plots
     xlabel, ylabel = 'Number of iteration', 'NRMSE value in log scale'
