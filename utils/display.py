@@ -137,7 +137,7 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
     ref_img_rgn = ref_img[blk_idx[0]:blk_idx[1], blk_idx[2]:blk_idx[3]]
 
     # display the amplitude and phase images
-    plt.figure(num=None, figsize=(fig_sz[0], fig_sz[1]), dpi=100, facecolor='w', edgecolor='k')
+    plt.figure(num=None, figsize=(fig_sz[0], fig_sz[1]), dpi=400, facecolor='w', edgecolor='k')
     # mag of reconstructed complex image
     plt.subplot(2, 4, 1)
     plt.imshow(np.abs(cmplx_img_rgn), cmap='gray', vmax=mag_vmax, vmin=mag_vmin)
@@ -196,4 +196,3 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
     if display:
         plt.show()
     plt.clf()
-
