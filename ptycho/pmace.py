@@ -54,11 +54,6 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
             block_idx = [0, cmplx_img.shape[0], 0, cmplx_img.shape[1]]
         temp_img = cmplx_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]]
 
-        # apply denoiser (prior model)
-        # if model_name in ['dncnn_gray_blind', 'dncnn_15', 'dncnn_25', 'dncnn_50']:
-        #     denoised_temp_img = denoise_dncnn(temp_img, model_name=model_name)
-        # else:
-        #     denoised_temp_img = denoise_cmplx_bm3d(temp_img, psd=noise_std)
         denoised_temp_img = denoise_cmplx_bm3d(temp_img, psd=noise_std)
         reg_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]] = denoised_temp_img
 
@@ -66,9 +61,9 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
         cmplx_img = (1 - reg_wgt) * cmplx_img + reg_wgt * reg_img
 
     # extract patches out of image
-    output = img2patch(cmplx_img, coords, projected_patch.shape)
+    cmplx_patch = img2patch(cmplx_img, coords, projected_patch.shape)
 
-    return output
+    return cmplx_img, cmplx_patch
 
 
 def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, probe_ref=None,
@@ -134,15 +129,16 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
         obj_mat = weighted_prox_map(updated_obj_mat, probe_concensus_output, dp, obj_pm)
         # z <- G(2w - v)
         obj_wgt = patch2img(np.ones(dp.shape, dtype=np.complex128) * (np.abs(probe_concensus_output) ** probe_exp),
-                            project_coords, init_obj.shape)
-        obj_concensus_output = weighted_consen_operator((2 * obj_mat - updated_obj_mat) * (np.abs(probe_concensus_output) ** probe_exp),
+                                     project_coords, init_obj.shape)
+        obj_est, obj_concensus_output = weighted_consen_operator((2 * obj_mat - updated_obj_mat) * (np.abs(probe_concensus_output) ** probe_exp),
                                                         project_coords, obj_wgt, init_obj.shape, add_reg=add_reg, reg_wgt=reg_wgt,
                                                         noise_std=noise_std, prior_model=prior, block_idx=blk_idx)
         # v <- v + 2 \rho (z - w)
         updated_obj_mat += 2 * rho * (obj_concensus_output - obj_mat)
         # obtain current estimate of complex images
-        obj_est = patch2img(updated_obj_mat * (np.abs(probe_concensus_output) ** probe_exp), project_coords,
-                            init_obj.shape, obj_wgt)
+        if not add_reg:
+            obj_est = patch2img(updated_obj_mat * (np.abs(probe_concensus_output) ** probe_exp), project_coords,
+                                init_obj.shape, obj_wgt)
 
         if joint_recon:
             # w <- F(v; w)
