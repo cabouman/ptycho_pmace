@@ -102,13 +102,6 @@ def main():
     # Plot reconstructed image
     plot_CuFoam_img(epie_result['obj_revy'], img_title='ePIE', display_win=cstr_win, display=display, save_dir=epie_dir)
 
-    # Wirtinger Flow (WF) recon
-    wf_dir = save_dir + 'WF/'
-    wf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
-                            accel=False, num_iter=num_iter, joint_recon=joint_recon, cstr_win=cstr_win, save_dir=wf_dir)
-    # Plot reconstructed image
-    plot_CuFoam_img(wf_result['obj_revy'], img_title='WF', display_win=cstr_win, display=display, save_dir=wf_dir)
-
     # # Accelerated Wirtinger Flow (AWF) recon
     awf_dir = save_dir + 'AWF/'
     awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
@@ -167,13 +160,15 @@ def main():
         os.makedirs(save_dir)
     copyfile(args.config_dir, save_dir + 'config.yaml')
 
-
     # Convergence plots
     xlabel, ylabel = 'Number of iteration', 'NRMSE value in log scale'
     line_label = 'nrmse'
-    nrmse = {'ePIE': epie_result['obj_err'], 'WF': wf_result['obj_err'], 'AWF': awf_result['obj_err'],
-             'SHARP': sharp_result['obj_err'], 'SHARP+': sharp_plus_result['obj_err'],
-             'PMACE': pmace_result['obj_err'], 'reg-PMACE': reg_pmace_result['obj_err']}
+    nrmse = {'ePIE': epie_result['obj_err'],
+             'AWF': awf_result['obj_err'],
+             'SHARP': sharp_result['obj_err'],
+             'SHARP+': sharp_plus_result['obj_err'],
+             'PMACE': pmace_result['obj_err'],
+             'reg-PMACE': reg_pmace_result['obj_err']}
     plot_nrmse(nrmse, title='Convergence plots of PMACE', label=[xlabel, ylabel, line_label],
                step_sz=10, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_plot')
 
