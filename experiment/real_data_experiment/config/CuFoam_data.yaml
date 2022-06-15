@@ -1,7 +1,7 @@
 data:
-  obj_dir: data/real_CuFoam_data/ref_img/obj_ref_img.tiff
-  probe_dir: data/real_CuFoam_data/ref_img/probe_ref_img.tiff
-  data_dir: data/real_CuFoam_data/CuFoamData_downsample_factor_2/
+  obj_dir: data/real_CuFoam_data/ref_img/obj_ref.tiff
+  probe_dir: data/real_CuFoam_data/ref_img/probe_ref.tiff
+  data_dir: data/real_CuFoam_data/CuFoamData/
   window_coords: [60, 560, 70, 680]
   display: True
 recon:
@@ -12,18 +12,19 @@ ePIE:
 SHARP:
   relax_pm: 0.6
 SHARP_plus:
-  relax_pm: 0.6
+  relax_pm: 0.75
 PMACE:
-  alpha: 0.4
+  alpha: 1
   rho: 0.5
   probe_exponent: 1.5
 reg-PMACE:
-  alpha: 0.4
+  alpha: 1
   rho: 0.5
   probe_exponent: 1.5
   reg_wgt: 0.6
   noise_std: 5/255
   prior: bm3d
 output:
-  out_dir: output/synthetic_case/
+  out_dir: output/CuFoam_data_recon_result/
+
 
