@@ -1,0 +1,6 @@
+data:
+  display: False
+  data_dir: data/real_CuFoam_data/CuFoamData/
+  save_dir: data/real_CuFoam_data/CuFoamData_downsample_factor_4/
+
+
