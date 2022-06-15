@@ -492,3 +492,20 @@ def gen_tukey_2D_window(init_window, alpha=0.5):
 
     return output
 
+
+def drop_line(df, scan_pts):
+    """
+    Function to reduce scan points and measurements by skipping lines with negative slope.
+    :param df: phase-less measurements (diffraction patterns).
+    :param scan_pts: scan points.
+    :return: reduced diffraction patterns and scan points.
+    """
+    def slope_between_point(x, y):
+        output = 0 if x[0] < y[0] else -1
+        return output
+    point_idx = np.arange(len(scan_pts))
+    for idx in range(1, len(scan_pts)):
+        slope = slope_between_point(scan_pts[idx - 1], scan_pts[idx])
+        if slope < 0:
+            point_idx = np.delete(point_idx, np.where(point_idx == idx))
+    return df[np.sort(point_idx)], scan_pts[np.sort(point_idx)]
