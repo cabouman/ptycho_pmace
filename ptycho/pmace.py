@@ -57,13 +57,13 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
         denoised_temp_img = denoise_cmplx_bm3d(temp_img, psd=noise_std)
         reg_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]] = denoised_temp_img
 
-        # use regularization weights to control the regularization
-        cmplx_img = (1 - reg_wgt) * cmplx_img + reg_wgt * reg_img
+        ## use regularization weights to control the regularization
+        #cmplx_img = (1 - reg_wgt) * cmplx_img + reg_wgt * reg_img
 
     # extract patches out of image
-    cmplx_patch = img2patch(cmplx_img, coords, projected_patch.shape)
+    cmplx_patch = img2patch(reg_img, coords, projected_patch.shape)
 
-    return cmplx_img, cmplx_patch
+    return reg_img, cmplx_patch
 
 
 def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, probe_ref=None,
