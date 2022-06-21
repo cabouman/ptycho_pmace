@@ -3,13 +3,13 @@ from ptycho_pmace.utils.prior import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 
 
-def weighted_prox_map(current_est, joint_est, dp, param):
+def weighted_prox_map(current_est, joint_est, dp, prm):
     """
     The proximal map function considering probe weights.
     :param current_est: current estimate of projected images or probe function.
     :param joint_est: current estimate of probe function or projected images.
     :param diffraction: pre-processed phase-less measurements or diffraction patterns.
-    :param param: noise-to-signal ratio.
+    :param prm: prm/(1-prm) denotes noise-to-signal ratio of the data.
     :return: new estimate of projected images or probe function.
     """
     # FT{D*P_j*v}
@@ -19,12 +19,12 @@ def weighted_prox_map(current_est, joint_est, dp, param):
     # IFT{y \times FT{D*P_j*v} / |FT{D*P_j*v}| }
     freq_ift = compute_ift(freq_update)
     # take weighted average of current estimate and closest data-fitting point
-    output = (param * current_est + divide_cmplx_numbers(freq_ift, joint_est)) / (1 + param)
+    output = prm * current_est + (1 - prm) * divide_cmplx_numbers(freq_ift, joint_est)
 
     return output
 
 
-def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True, noise_std=10/255, prior_model='bm3d', block_idx=None):
+def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True, bm3d_psd=0.1, block_idx=None):
     """
     The consensus operator G \left ( x \right ) = \begin{bmatrix}
                                                       \bar{x_{0}}\\
@@ -38,8 +38,7 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
     :param norm: \Lambda ^{-1} which controls weights of pixels by the contribution to redundancy and probe weights.
     :param img_sz: size of complex image to be reconstructed.
     :param add_reg: incorporation of regularization.
-    :param noise_std: standard deviation of noise, which is denoising parameter in bm3d.
-    :param prior_model: choice of denoiser.
+    :param bm3d_psd: knowledge of expected spectrum in bm3d.
     :param block_idx: defines the region of image to be denoised.
     :return: new estimate of image patches.
     """
@@ -63,9 +62,8 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
 
 
 def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, probe_ref=None,
-                num_iter=100, obj_pm=1, probe_pm=1, rho=0.5, probe_exp=1.25, obj_exp=0.25,
-                add_reg=True, reg_wgt=0.6, noise_std=10 / 255, prior='bm3d',
-                joint_recon=False, cstr_win=None, save_dir=None):
+                num_iter=100, obj_pm=0.5, probe_pm=0.5, rho=0.5, probe_exp=1.5, obj_exp=0.25,
+                add_reg=True, sigma=0.1, joint_recon=False, cstr_win=None, save_dir=None):
     """
     Function to perform PMACE reconstruction on ptychographic data.
     :param dp: pre-processed diffraction pattern (intensity data).
@@ -81,9 +79,7 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
     :param probe_exp: exponent of probe weighting in consensus calculation of probe estimate..
     :param obj_exp: exponent of image weighting in consensus calculation of probe estimate.
     :param add_reg: add serial regularization.
-    :param reg_wgt: regularization weight.
-    :param noise_std: denoising parameter required in prior model.
-    :param prior: prior model.
+    :param sigma: denoising parameter in prior model.
     :param joint_recon: option to recover complex probe for blind ptychography.
     :param cstr_win: pre-defined/assigned window for comparing reconstruction results.
     :param save_dir: directory to save reconstruction results.
@@ -127,8 +123,7 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
         obj_wgt = patch2img(np.ones(dp.shape, dtype=np.complex128) * (np.abs(probe_concensus_output) ** probe_exp),
                                      project_coords, init_obj.shape)
         obj_est, obj_concensus_output = weighted_consen_operator((2 * obj_mat - updated_obj_mat) * (np.abs(probe_concensus_output) ** probe_exp),
-                                                        project_coords, obj_wgt, init_obj.shape, add_reg=add_reg,
-                                                        noise_std=noise_std, prior_model=prior, block_idx=blk_idx)
+                                                        project_coords, obj_wgt, init_obj.shape, add_reg=add_reg, bm3d_psd=sigma, block_idx=blk_idx)
         # v <- v + 2 \rho (z - w)
         updated_obj_mat += 2 * rho * (obj_concensus_output - obj_mat)
         # obtain current estimate of complex images
