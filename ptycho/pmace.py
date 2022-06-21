@@ -1,5 +1,6 @@
 from ptycho_pmace.utils.utils import *
 from ptycho_pmace.utils.prior import *
+from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 
 
 def weighted_prox_map(current_est, joint_est, dp, param):
@@ -23,8 +24,7 @@ def weighted_prox_map(current_est, joint_est, dp, param):
     return output
 
 
-def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True,
-                             reg_wgt=0.6, noise_std=10/255, prior_model='bm3d', block_idx=None):
+def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True, noise_std=10/255, prior_model='bm3d', block_idx=None):
     """
     The consensus operator G \left ( x \right ) = \begin{bmatrix}
                                                       \bar{x_{0}}\\
@@ -37,8 +37,7 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
     :param coords: coordinates of projections.
     :param norm: \Lambda ^{-1} which controls weights of pixels by the contribution to redundancy and probe weights.
     :param img_sz: size of complex image to be reconstructed.
-    :param add_reg:
-    :param reg_wgt: regularization weight.
+    :param add_reg: incorporation of regularization.
     :param noise_std: standard deviation of noise, which is denoising parameter in bm3d.
     :param prior_model: choice of denoiser.
     :param block_idx: defines the region of image to be denoised.
@@ -54,16 +53,13 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
             block_idx = [0, cmplx_img.shape[0], 0, cmplx_img.shape[1]]
         temp_img = cmplx_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]]
 
-        denoised_temp_img = denoise_cmplx_bm3d(temp_img, psd=noise_std)
-        reg_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]] = denoised_temp_img
-
-        ## use regularization weights to control the regularization
-        #cmplx_img = (1 - reg_wgt) * cmplx_img + reg_wgt * reg_img
+        denoised_temp_img = bm4d(temp_img, noise_std, profile=BM4DProfileBM3DComplex())[:, :, 0]
+        cmplx_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]] = denoised_temp_img
 
     # extract patches out of image
-    cmplx_patch = img2patch(reg_img, coords, projected_patch.shape)
+    cmplx_patch = img2patch(cmplx_img, coords, projected_patch.shape)
 
-    return reg_img, cmplx_patch
+    return cmplx_img, cmplx_patch
 
 
 def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, probe_ref=None,
@@ -131,7 +127,7 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
         obj_wgt = patch2img(np.ones(dp.shape, dtype=np.complex128) * (np.abs(probe_concensus_output) ** probe_exp),
                                      project_coords, init_obj.shape)
         obj_est, obj_concensus_output = weighted_consen_operator((2 * obj_mat - updated_obj_mat) * (np.abs(probe_concensus_output) ** probe_exp),
-                                                        project_coords, obj_wgt, init_obj.shape, add_reg=add_reg, reg_wgt=reg_wgt,
+                                                        project_coords, obj_wgt, init_obj.shape, add_reg=add_reg,
                                                         noise_std=noise_std, prior_model=prior, block_idx=blk_idx)
         # v <- v + 2 \rho (z - w)
         updated_obj_mat += 2 * rho * (obj_concensus_output - obj_mat)
