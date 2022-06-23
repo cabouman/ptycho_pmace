@@ -5,8 +5,8 @@ sys.path.append(str(root_dir))
 import os, argparse, yaml
 import datetime as dt
 from shutil import copyfile
-from ptycho_pmace.utils.utils import *
-from ptycho_pmace.ptycho import *
+from utils.utils import *
+from ptycho import *
 
 
 '''
@@ -38,14 +38,7 @@ def main():
     data_dir = os.path.join(root_dir, config['data']['data_dir'])
     display = config['data']['display']
     window_coords = config['data']['window_coords']
-    out_dir = os.path.join(root_dir, config['output']['out_dir'])
-
-    # Determine time stamp
-    today_date = dt.date.today()
-    date_time = dt.datetime.strftime(today_date, '%Y-%m-%d_%H_%M/')
-
-    # Path with time stamp
-    save_dir = os.path.join(out_dir, date_time)
+    save_dir = os.path.join(root_dir, config['output']['out_dir'])
 
     # Create the directory
     try:
@@ -116,48 +109,45 @@ def main():
                              cstr_win=display_win, save_dir=awf_dir)
 
     # SHARP recon
-    relax_pm = config['SHARP']['relax_pm']
+    relax_prm = config['SHARP']['relax_prm']
     sharp_dir = save_dir + config['SHARP']['out_dir']
     sharp_result = sharp.sharp_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, relax_pm=relax_pm,
+                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, relax_pm=relax_prm,
                                      joint_recon=True, cstr_win=display_win, save_dir=sharp_dir)
 
 
     # SHARP_plus
-    relax_pm = config['SHARP_plus']['relax_pm']
+    relax_prm = config['SHARP_plus']['relax_prm']
     srp_plus_dir = save_dir + config['SHARP_plus']['out_dir']
     sharp_plus_result = sharp.sharp_plus_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                               obj_ref=obj_ref, probe_ref=probe_ref,  num_iter=num_iter, relax_pm=relax_pm,
+                                               obj_ref=obj_ref, probe_ref=probe_ref,  num_iter=num_iter, relax_pm=relax_prm,
                                                joint_recon=True, cstr_win=display_win, save_dir=srp_plus_dir)
 
     # PMACE
-    obj_pm = config['PMACE']['obj_noisetosignal_ratio']
-    probe_pm = config['PMACE']['probe_noisetosignal_ratio']
+    obj_prm = config['PMACE']['obj_prm']
+    probe_prm = config['PMACE']['probe_prm']
     rho = config['PMACE']['rho']
-    probe_exp = config['PMACE']['probe_exponent']
-    obj_exp = config['PMACE']['obj_exponent']
+    probe_exp = config['PMACE']['probe_exp']
+    obj_exp = config['PMACE']['obj_exp']
     pmace_dir = save_dir + config['PMACE']['out_dir']
     pmace_result = pmace.pmace_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
                                      obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter,
-                                     obj_pm=obj_pm, probe_pm=probe_pm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
+                                     obj_pm=obj_prm, probe_pm=probe_prm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
                                      add_reg=False, joint_recon=True, cstr_win=display_win, save_dir=pmace_dir)
 
     #
     # PMACE + serial regularization
-    obj_pm = config['reg-PMACE']['obj_noisetosignal_ratio']
-    probe_pm = config['reg-PMACE']['probe_noisetosignal_ratio']
+    obj_prm = config['reg-PMACE']['obj_prm']
+    probe_prm = config['reg-PMACE']['probe_prm']
     rho = config['reg-PMACE']['rho']
     probe_exp = config['reg-PMACE']['probe_exp']
     obj_exp = config['reg-PMACE']['obj_exp']
-    reg_wgt = config['reg-PMACE']['reg_wgt']
-    noise_std = config['reg-PMACE']['noise_std']
-    prior = config['reg-PMACE']['prior_model']
+    bm3d_psd = config['reg-PMACE']['bm3d_psd']
     reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir']
     reg_pmace_result = pmace.pmace_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
                                          obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter,
-                                         obj_pm=obj_pm, probe_pm=probe_pm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
-                                         add_reg=True, reg_wgt=reg_wgt, noise_std=noise_std, prior=prior,
-                                         joint_recon=True, cstr_win=display_win, save_dir=reg_pmace_dir)
+                                         obj_pm=obj_prm, probe_pm=probe_prm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
+                                         add_reg=True, sigma=bm3d_psd, joint_recon=True, cstr_win=display_win, save_dir=reg_pmace_dir)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
