@@ -128,7 +128,7 @@ def main():
     plot_CuFoam_img(sharp_plus_result['obj_revy'], img_title='SHARP', display_win=cstr_win, display=display, save_dir=sharp_plus_dir)
 
     # PMACE recon
-    alpha = config['PMACE']['alpha']                   # noise-to-signal ratio
+    alpha = config['PMACE']['alpha']                
     rho = config['PMACE']['rho']                       # Mann averaging parameter
     probe_exp = config['PMACE']['probe_exponent']      # probe exponent
     pmace_dir = save_dir + 'PMACE/alpha_{}_rho_{}_probe_exp_{}/'.format(alpha, rho, probe_exp)
@@ -143,13 +143,11 @@ def main():
     alpha = config['reg-PMACE']['alpha']
     rho = config['reg-PMACE']['rho']
     probe_exp = config['reg-PMACE']['probe_exponent']
-    reg_wgt = config['reg-PMACE']['reg_wgt']            # regularization weight
-    noise_std = config['reg-PMACE']['noise_std']        # denoising parameter
-    prior = config['reg-PMACE']['prior']                # prior model, eg. bm3d or DnCNN
+    bm3d_psd = config['reg-PMACE']['bm3d_psd']      
     reg_pmace_dir = save_dir + 'reg_PMACE/reg_wgt_{}_noise_std_{}/'.format(reg_wgt, noise_std)
     reg_pmace_result = pmace.pmace_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
                                          num_iter=num_iter, obj_pm=alpha, rho=rho, probe_exp=probe_exp,
-                                         add_reg=True, reg_wgt=reg_wgt, noise_std=noise_std, prior=prior,
+                                         add_reg=True, sigma=bm3d_psd,
                                          joint_recon=joint_recon, cstr_win=cstr_win, save_dir=reg_pmace_dir)
     # Plot reconstructed image
     plot_CuFoam_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', display_win=cstr_win, display=display,
