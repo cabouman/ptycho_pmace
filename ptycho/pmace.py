@@ -1,5 +1,4 @@
-from ptycho_pmace.utils.utils import *
-from ptycho_pmace.utils.prior import *
+from utils.utils import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 
 
@@ -52,7 +51,7 @@ def weighted_consen_operator(projected_patch, coords, norm, img_sz, add_reg=True
             block_idx = [0, cmplx_img.shape[0], 0, cmplx_img.shape[1]]
         temp_img = cmplx_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]]
 
-        denoised_temp_img = bm4d(temp_img, noise_std, profile=BM4DProfileBM3DComplex())[:, :, 0]
+        denoised_temp_img = bm4d(temp_img, bm3d_psd, profile=BM4DProfileBM3DComplex())[:, :, 0]
         cmplx_img[block_idx[0]: block_idx[1], block_idx[2]: block_idx[3]] = denoised_temp_img
 
     # extract patches out of image
