@@ -7,7 +7,7 @@ data:
 recon:
   num_iter: 100
 ePIE:
-  obj_step_sz: 1
+  step_sz: 1
   out_dir: ePIE/
 WF:
   out_dir: WF/
@@ -21,15 +21,10 @@ SHARP_plus:
   out_dir: SHARP_plus/
 PMACE:
   alpha: 0.3
-  rho: 0.5
-  probe_exponent: 1.5
   out_dir: PMACE/
 reg-PMACE:
   alpha: 0.3
-  rho: 0.5
-  probe_exponent: 1.5
-  noise_std: 0.1
-  prior: bm3d
+  bm3d_psd: 0.02
   out_dir: reg-PMACE/
 output:
   out_dir: output/demo_pmace_output/
