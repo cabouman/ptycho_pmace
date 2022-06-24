@@ -10,14 +10,13 @@ from ptycho import *
 
 
 '''
-This file demonstrates the reconstruction of complex transmittance image by processing the synthetic data. 
+This file demonstrates the reconstruction of complex transmittance image by processing the synthetic data with known probe function. 
 '''
 
 
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic image reconstruction using various approaches.')
-
-    parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', const='configs/demo_pmace.yaml',
+    parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', const='demo_pmace.yaml',
                         default=os.path.join(root_dir, 'configs/demo_pmace.yaml'))
     return parser
 
@@ -75,7 +74,7 @@ def main():
     else:
         display_win = None
 
-    # Reconstruction parameters
+    # Reconstruction parameters and arguments
     recon_args = dict(init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref, 
                       num_iter=config['recon']['num_iter'], joint_recon=False, cstr_win=display_win)
     fig_args = dict(ref_img=obj_ref, display_win=display_win, display=display)
