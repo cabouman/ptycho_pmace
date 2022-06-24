@@ -2,7 +2,7 @@ import sys, os
 from pathlib import Path
 root_dir = Path(__file__).parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
-from ptycho_pmace.utils.utils import *
+from utils.utils import *
 from shutil import copyfile
 import argparse, yaml
 
@@ -24,7 +24,7 @@ with open(args.config_dir, 'r') as f:
 # hyper-params
 obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
 probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
-num_agts = config['data']['num_agts']
+num_scan_pt = config['data']['num_scan_pt']
 probe_spacing = config['data']['probe_spacing']
 max_scan_loc_offset = config['data']['max_scan_loc_offset']
 add_noise = config['data']['add_noise']
@@ -43,17 +43,14 @@ rand_seed = 0
 np.random.seed(rand_seed)
 
 # generate scan positions
-scan_loc = gen_scan_loc(obj, probe, num_agts, probe_spacing, randomization=True, max_offset=max_scan_loc_offset,
+scan_loc = gen_scan_loc(obj, probe, num_scan_pt, probe_spacing, randomization=True, max_offset=max_scan_loc_offset,
                         display=display, save_dir=data_dir)
 
 # calculate the coordinates of projections
-rounded_scan_loc = np.round(scan_loc)
-scan_coords = np.zeros((num_agts, 4), dtype=int)
-scan_coords[:, 0], scan_coords[:, 1] = rounded_scan_loc[:, 1] - m / 2, rounded_scan_loc[:, 1] + m / 2
-scan_coords[:, 2], scan_coords[:, 3] = rounded_scan_loc[:, 0] - n / 2, rounded_scan_loc[:, 0] + n / 2
+projection_coords = get_proj_coords_from_data(scan_loc, np.ones((num_scan_pt, probe.shape[0], probe.shape[1])))
 
-# generate noisy diffraction patterns
-noisy_data = gen_syn_data(obj, probe, scan_coords, num_agts,
+# generate noisy synthetic data
+noisy_data = gen_syn_data(obj, probe, projection_coords, num_scan_pt,
                           add_noise=True, photon_rate=photon_rate, shot_noise_pm=shot_noise_rate,
                           fft_threads=1, display=display, save_dir=data_dir+'frame_data/')
 
