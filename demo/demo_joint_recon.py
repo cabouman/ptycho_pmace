@@ -17,8 +17,7 @@ from ptychographic data using WF, SHARP, ePIE and PMACE.
 
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic joint reconstruction using various approaches.')
-
-    parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', const='configs/joint_recon.yaml',
+    parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', const='joint_recon.yaml',
                         default=os.path.join(root_dir, 'configs/joint_recon.yaml'))
     return parser
 
@@ -86,68 +85,58 @@ def main():
         display_win = None
 
     # Reconstruction parameters
-    num_iter = config['recon']['num_iter']
+    num_iter = config['recon']['num_iter']# Reconstruction parameters and arguments
+    args = dict(init_obj=init_obj, init_probe=init_probe, obj_ref=obj_ref, probe_ref=probe_ref, 
+                      num_iter=config['recon']['num_iter'], joint_recon=True, cstr_win=display_win)
 
     # ePIE recon
-    obj_step_sz = config['ePIE']['obj_step_sz']
-    probe_step_sz = config['ePIE']['probe_step_sz']
+    obj_ss = config['ePIE']['obj_step_sz']
+    probe_ss = config['ePIE']['probe_step_sz']
     epie_dir = save_dir + config['ePIE']['out_dir']
-    epie_result = pie.epie_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                 obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=obj_step_sz,
-                                 probe_step_sz=probe_step_sz, joint_recon=True, cstr_win=display_win, save_dir=epie_dir)
+    epie_result = pie.epie_recon(diffract_data, projection_coords, obj_step_sz=obj_ss, probe_step_sz=probe_ss,
+                                 save_dir=epie_dir, **args)
 
     # WF recon
     wf_dir = save_dir + config['WF']['out_dir']
-    wf_result = wf.wf_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                            obj_ref=obj_ref, probe_ref=probe_ref, accel=False, num_iter=num_iter, joint_recon=True,
-                            cstr_win=display_win, save_dir=wf_dir)
+    wf_result = wf.wf_recon(diffract_data, projection_coords, accel=False, save_dir=wf_dir, **args)
 
     # AWF recon
     awf_dir = save_dir + config['AWF']['out_dir']
-    awf_result = wf.wf_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                             obj_ref=obj_ref, probe_ref=probe_ref, accel=True, num_iter=num_iter, joint_recon=True,
-                             cstr_win=display_win, save_dir=awf_dir)
+    awf_result = wf.wf_recon(diffract_data, projection_coords, accel=True, save_dir=awf_dir, **args)
 
     # SHARP recon
     relax_prm = config['SHARP']['relax_prm']
     sharp_dir = save_dir + config['SHARP']['out_dir']
-    sharp_result = sharp.sharp_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, relax_pm=relax_prm,
-                                     joint_recon=True, cstr_win=display_win, save_dir=sharp_dir)
+    sharp_result = sharp.sharp_recon(diffract_data, projection_coords, relax_pm=relax_prm, save_dir=sharp_dir, **args)
 
 
     # SHARP_plus
     relax_prm = config['SHARP_plus']['relax_prm']
     srp_plus_dir = save_dir + config['SHARP_plus']['out_dir']
-    sharp_plus_result = sharp.sharp_plus_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                               obj_ref=obj_ref, probe_ref=probe_ref,  num_iter=num_iter, relax_pm=relax_prm,
-                                               joint_recon=True, cstr_win=display_win, save_dir=srp_plus_dir)
+    sharp_plus_result = sharp.sharp_plus_recon(diffract_data, projection_coords, relax_pm=relax_prm,
+                                               save_dir=srp_plus_dir, **args)
 
     # PMACE
     obj_prm = config['PMACE']['obj_prm']
     probe_prm = config['PMACE']['probe_prm']
-    rho = config['PMACE']['rho']
     probe_exp = config['PMACE']['probe_exp']
     obj_exp = config['PMACE']['obj_exp']
     pmace_dir = save_dir + config['PMACE']['out_dir']
-    pmace_result = pmace.pmace_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter,
-                                     obj_pm=obj_prm, probe_pm=probe_prm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
-                                     add_reg=False, joint_recon=True, cstr_win=display_win, save_dir=pmace_dir)
+    pmace_result = pmace.pmace_recon(diffract_data, projection_coords,
+                                     obj_pm=obj_prm, probe_pm=probe_prm, probe_exp=probe_exp, obj_exp=obj_exp,
+                                     add_reg=False, save_dir=pmace_dir, **args)
 
     #
     # PMACE + serial regularization
     obj_prm = config['reg-PMACE']['obj_prm']
     probe_prm = config['reg-PMACE']['probe_prm']
-    rho = config['reg-PMACE']['rho']
     probe_exp = config['reg-PMACE']['probe_exp']
     obj_exp = config['reg-PMACE']['obj_exp']
     bm3d_psd = config['reg-PMACE']['bm3d_psd']
     reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir']
-    reg_pmace_result = pmace.pmace_recon(diffract_data, projection_coords, init_obj=init_obj, init_probe=init_probe,
-                                         obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter,
-                                         obj_pm=obj_prm, probe_pm=probe_prm, rho=rho, probe_exp=probe_exp, obj_exp=obj_exp,
-                                         add_reg=True, sigma=bm3d_psd, joint_recon=True, cstr_win=display_win, save_dir=reg_pmace_dir)
+    reg_pmace_result = pmace.pmace_recon(diffract_data, projection_coords, obj_pm=obj_prm, probe_pm=probe_prm, 
+                                         probe_exp=probe_exp, obj_exp=obj_exp, add_reg=True, sigma=bm3d_psd, 
+                                         save_dir=reg_pmace_dir, **args)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
