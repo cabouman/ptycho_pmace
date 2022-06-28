@@ -78,6 +78,7 @@ def main():
 
     # Preprocess data
     data[data < 0] = 0
+    diffract_data = np.sqrt(data)
     img_pixel_sz = source_wavelength * 1e-9 * distance / (621 * x_pixel_sz)
     print('image pixel size =', img_pixel_sz, 'm')
         
@@ -124,8 +125,8 @@ def main():
     
     # Generate formulated initial guess for reconstruction
     init_obj = np.ones((750, 750), dtype=np.complex128)
-    init_probe = gen_init_probe(data, projection_coords, obj_ref=init_obj, display=display)
-    init_obj = gen_init_obj(data, projection_coords, obj_ref=init_obj, probe_ref=init_probe, display=display)
+    init_probe = gen_init_probe(diffract_data, projection_coords, obj_ref=init_obj, display=True)
+    init_obj = gen_init_obj(diffract_data, projection_coords, obj_ref=init_obj, probe_ref=init_probe, display=True)
     
     # reconstruction arguments
     args = dict(init_obj=init_obj, init_probe=init_probe, 
@@ -135,7 +136,7 @@ def main():
     obj_ss = config['ePIE']['obj_step_sz']
     probe_ss = config['ePIE']['probe_step_sz']
     epie_dir = save_dir + 'ePIE/obj_ss_{}_probe_ss_{}/'.format(obj_ss, probe_ss)
-    epie_result = pie.epie_recon(data, projection_coords, obj_step_sz=obj_ss, probe_step_sz=probe_ss, save_dir=epie_dir, **args)
+    epie_result = pie.epie_recon(diffract_data, projection_coords, obj_step_sz=obj_ss, probe_step_sz=probe_ss, save_dir=epie_dir, **args)
 
 
 #def plot_GoldBall_img(cmplx_img, img_title, display_win=None, display=False, save_dir=None):
