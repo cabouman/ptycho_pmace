@@ -79,13 +79,13 @@ def main():
     # Preprocess data
     data[data < 0] = 0
     diffract_data = np.sqrt(data)
-    img_pixel_sz = source_wavelength * 1e-9 * distance / (621 * x_pixel_sz)
+    img_pixel_sz = source_wavelength * 1e-9 * distance / (data.shape[1] * x_pixel_sz)
     print('image pixel size =', img_pixel_sz, 'm')
         
     # convert units of translations from m to pixels
     reversed_trans = np.copy(trans)
     reversed_trans[:, 1] = -trans[:, 1]
-    trans_px = reversed_trans / img_pixel_sz + data.shape[1] / 2 + 12.5
+    trans_px = reversed_trans / img_pixel_sz + data.shape[1] / 2 + 12
     if display:
         plt.subplot(121)
         plt.plot(trans[:, 0], trans[:, 1], 'r.')
