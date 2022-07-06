@@ -12,15 +12,13 @@ def compute_nrmse(img, ref_img, cstr=None):
     :param cstr: area for comparison.
     :return: NRMSE between two images.
     """
-    if cstr is None:
-        cstr = np.ones(img.shape)
+    # assign region for calculating error
+    img_adj = img if cstr is None else cstr * img
+    ref_img_adj = img if cstr is None else cstr * ref_img
 
-    num_px = float(np.sum(cstr))
-    ref_img = cstr * ref_img
-    img = cstr * img
     # compute MSE
+    num_px = float(np.sum(cstr)) if cstr is not None else float(img.shape[0] * img.shape[1])
     mse = np.sum(np.abs(img - ref_img) ** 2) / num_px
-    # rmse = np.sqrt(mse)
     temp = np.sqrt(np.sum(np.abs(ref_img) ** 2) / num_px)
     output = np.divide(np.sqrt(mse), temp, where=(temp != 0))
 
@@ -42,7 +40,7 @@ def pha_err(gt, img):
     return pha_error
 
 
-def phase_norm(img, img_ref):
+def phase_norm(img, ref_img, cstr=None):
     """
     The reconstruction is blind to absolute phase of ground truth image, so need to make
     phase shift to the reconstruction results given the known ground truth image.
@@ -50,9 +48,13 @@ def phase_norm(img, img_ref):
     :param img_ref: the known ground truth image or reference image.
     :return: the phase normalized reconstruction.
     """
+    # assign region for phase normalization
+    img_adj = img if cstr is None else cstr * img
+    reg_img_adj = ref_img is cstr is None else cstr * ref_img
+
     # phase normalization
-    cmplx_scaler = np.sum(np.conj(img) * img_ref) / (np.linalg.norm(img) ** 2)
-    output = cmplx_scaler * img
+    cmplx_scaler = np.sum(np.conj(img_adj) * ref_img_adj) / (np.linalg.norm(img_adj) ** 2)
+    output = cmplx_scaler * img_adj
 
     return output
 
