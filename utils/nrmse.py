@@ -50,7 +50,7 @@ def phase_norm(img, ref_img, cstr=None):
     """
     # assign region for phase normalization
     img_adj = img if cstr is None else cstr * img
-    reg_img_adj = ref_img is cstr is None else cstr * ref_img
+    reg_img_adj = ref_img if cstr is None else cstr * ref_img
 
     # phase normalization
     cmplx_scaler = np.sum(np.conj(img_adj) * ref_img_adj) / (np.linalg.norm(img_adj) ** 2)
