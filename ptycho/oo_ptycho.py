@@ -14,7 +14,7 @@ def cast(value, num_type):
 class PTYCHO:
     def __init__(self, y_meas, patch_bounds, 
                  init_obj, init_probe=None, ref_obj=None, ref_probe=None, 
-                 recon_win=None, joint_recon=False, save_dir=None,
+                 num_iter=100, recon_win=None, joint_recon=False, save_dir=None,
                  pmace_probe_exp=1.5, pmace_image_exp=0.5):
         """
         Class to perform ptychographic recosntructions.
@@ -39,7 +39,8 @@ class PTYCHO:
         self.patch_bounds = patch_bounds
         self.recon_win = np.ones_like(init_obj) if recon_win is None else recon_win
         self.joint_recon = joint_recon 
-
+        self.save_dir = save_dir
+    
         self.cur_image = cast(init_obj, self.dtype_cmplx)  # obj_est
         self.img_shape = self.cur_image.shape
         self.cur_patches = self.img2patch(self.cur_image)  # obj_mat
@@ -52,6 +53,7 @@ class PTYCHO:
         self.probe_nrmse = []
 
         self.cur_probe = cast(init_probe, self.dtype_cmplx) if init_probe is not None else self.ref_probe  # probe_est
+        self.cur_probe_mat = [self.cur_probe] * len(self.y_meas)
         
         # recon
         self.num_iter = num_iter
@@ -62,10 +64,10 @@ class PTYCHO:
         self.seq = np.arange(0, len(self.y_meas), 1).tolist()
 
         # wf recon
-        self.wf_const_val = np.amax(self.patch2img(np.abs(self.cur_probe, dtype=self.dtype_real) ** 2))
+        self.wf_const_val = np.amax(self.patch2img(np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** 2))
 
         # sharp(+) recon
-        self.sharp_img_wgt = self.patch2img(np.abs([est_probe] * len(self.y_meas), dtype=self.dtype_real) ** 2)
+        self.sharp_img_wgt = self.patch2img(np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** 2)
         sharp_tol = np.amax([1e-3, np.amax(np.abs(self.sharp_img_wgt)) * 1e-6])
         self.sharp_img_wgt[np.abs(self.sharp_img_wgt) < sharp_tol] = sharp_tol
 
@@ -73,8 +75,8 @@ class PTYCHO:
         self.probe_exp = cast(pmace_probe_exp, self.dtype_real)
         self.image_exp = cast(pmace_image_exp, self.dtype_real)
         self.pmace_patches = np.copy(self.cur_patches)
-        self.pmace_probe = np.copy(self.cur_probe)
-        self.pmace_patch_wgt = np.abs(self.pmace_probe, dtype=self.dtype_real) ** self.probe_exp
+        #self.pmace_probe = np.copy(self.cur_probe)
+        self.pmace_patch_wgt = np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** self.probe_exp
         self.pmace_image_wgt = self.patch2img(self.pmace_patch_wgt)
         pmace_tol = np.amax([1e-3, np.amax(np.abs(self.pmace_image_wgt)) * 1e-6])
         self.pmace_image_wgt[np.abs(self.pmace_image_wgt) < pmace_tol] = pmace_tol
@@ -113,8 +115,8 @@ class PTYCHO:
             Reconstructed complex images, and errors between reconstructions and reference images. 
         """
         # initialization
-        est_image = np.copy(self.cur_image)
-        est_probe = np.copy(self.cur_probe)
+        est_image, old_est_image = np.copy(self.cur_image), np.copy(self.cur_image)
+        est_probe, old_est_probe = np.copy(self.cur_probe), np.copy(self.cur_probe)
         pmace_args = dict(data_fit_param=pmace_data_fit_param, rho=pmace_rho, use_reg=pmace_use_reg, sigma=pmace_sigma)
         save_dir = self.save_dir + '{}/'.format(recon_approach) 
         self.check_fpath(save_dir)
@@ -188,14 +190,14 @@ class PTYCHO:
 
 
 
-    def epie_iter(self, obj_step_sz=0.1, probe_step_sz=0.1, input_image=None, input_probe=None):
+    def epie_iter(self, input_image=None, input_probe=None, obj_step_sz=0.1, probe_step_sz=0.1):
         """
         Use ePIE to update the current estimate of complex object image and/or complex probe.
         Args:
-            obj_step_sz: step size of image update.
-            probe_step_sz: step size of probe update.
             input_image: current estimate of complex image.
             input_probe: current estimate of complex probe.
+            obj_step_sz: step size of image update.
+            probe_step_sz: step size of probe update.
         Returns:
             output_image: new estimate of complex image.
             output_probe: new estimate of complex probe.
@@ -250,7 +252,7 @@ class PTYCHO:
         output_image = input_image - self.patch2img(frm * np.conj(input_probe)) / self.wf_const_val
 
         # revise estimate of complex probe
-        if self.joint_reon:
+        if self.joint_recon:
             projected_patches = self.img2patch(output_image)
             # calculate step size of probe udpate
             mu = 1 / np.amax(np.sum(np.abs(projected_patches, dtype=self.dtype_real) ** 2, 0))
@@ -383,7 +385,7 @@ class PTYCHO:
             # obtain current estimate of complex probe
             output_probe = self.dbar(self.pmace_probe, new_patches, image_exp)
             # update patch weight and image weight
-            self.pmace_patch_wgt = np.abs(output_probe, dtype=self.dtype_real) ** self.pmace_probe_exp
+            self.pmace_patch_wgt = np.abs([output_probe] * len(self.y_meas), dtype=self.dtype_real) ** self.probe_exp
             self.pmace_image_wgt = self.patch2img(self.pmace_patch_wgt)
             pmace_tol = np.amax([1e-3, np.amax(np.abs(self.pmace_image_wgt)) * 1e-6])
             self.pmace_image_wgt[np.abs(self.pmace_image_wgt) < pmace_tol] = pmace_tol
