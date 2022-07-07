@@ -81,9 +81,14 @@ def main():
     source_wavelength = 1239.84193 / energy_eV
     print('source wavelength:', source_wavelength, 'nm', 'or equivalently', source_wavelength *1e-9, 'm')
     
-    # Preprocess data
-    data -= np.average(dark_data, axis=0)
-    data[data < 0] = 0
+    # Adjust data
+    subtracted_data = data - np.average(dark_data, axis=0)
+    shifted_data = np.copy(subtracted_data)
+    shifted_data = np.roll(shifted_data, [1, 15], axis=(1, 2))
+
+    ## Preprocess data
+    #data[data < 0] = 0
+    data = (shifted_data + np.abs(shifted_data)) / 2.0
     diffract_data = np.sqrt(data)
     img_pixel_sz = source_wavelength * 1e-9 * distance / (data.shape[1] * x_pixel_sz)
     print('image pixel size =', img_pixel_sz, 'm')
