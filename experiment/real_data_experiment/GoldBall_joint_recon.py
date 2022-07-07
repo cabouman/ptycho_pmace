@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
+print(root_dir)
+sys.path.append(str(root_dir.parent.absolute()))
 import argparse, yaml
 import datetime as dt
 from shutil import copyfile
@@ -48,6 +50,9 @@ def main():
         data = np.array(f["entry_1/data_1/data"])
         print('shape of measurements:', np.shape(data))
 
+        dark_data = np.array(f["entry_1/instrument_1/detector_1/data_dark"])
+        print('shape of dark data:', dark_data.shape)
+
         trans = np.array(f["entry_1/data_1/translation"])
         print('shape of translation:', trans.shape)
 
@@ -75,8 +80,9 @@ def main():
     
     source_wavelength = 1239.84193 / energy_eV
     print('source wavelength:', source_wavelength, 'nm', 'or equivalently', source_wavelength *1e-9, 'm')
-
+    
     # Preprocess data
+    data -= np.average(dark_data, axis=0)
     data[data < 0] = 0
     diffract_data = np.sqrt(data)
     img_pixel_sz = source_wavelength * 1e-9 * distance / (data.shape[1] * x_pixel_sz)
