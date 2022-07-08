@@ -4,7 +4,7 @@ root_dir = Path(__file__).parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
 
 from utils.utils import *
-from bm4d.bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
+from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 import random
 
 def cast(value, num_type):
@@ -60,22 +60,22 @@ class PTYCHO:
         non_zero_idx = np.nonzero(self.recon_win)
         self.blk_idx = [np.amin(non_zero_idx[0]), np.amax(non_zero_idx[0]) + 1,
                         np.amin(non_zero_idx[1]), np.amax(non_zero_idx[1]) + 1]
-        # epie recon
+        # epie 
         self.seq = np.arange(0, len(self.y_meas), 1).tolist()
 
-        # wf recon
+        # wf 
         self.wf_const_val = np.amax(self.patch2img(np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** 2))
 
-        # sharp(+) recon
+        # sharp(+) 
         self.sharp_img_wgt = self.patch2img(np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** 2)
         sharp_tol = np.amax([1e-3, np.amax(np.abs(self.sharp_img_wgt)) * 1e-6])
         self.sharp_img_wgt[np.abs(self.sharp_img_wgt) < sharp_tol] = sharp_tol
 
-        # pmace recon
+        # pmace 
         self.probe_exp = cast(pmace_probe_exp, self.dtype_real)
         self.image_exp = cast(pmace_image_exp, self.dtype_real)
         self.pmace_patches = np.copy(self.cur_patches)
-        #self.pmace_probe = np.copy(self.cur_probe)
+        self.pmace_probe = np.copy(self.cur_probe)
         self.pmace_patch_wgt = np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** self.probe_exp
         self.pmace_image_wgt = self.patch2img(self.pmace_patch_wgt)
         pmace_tol = np.amax([1e-3, np.amax(np.abs(self.pmace_image_wgt)) * 1e-6])
@@ -117,44 +117,37 @@ class PTYCHO:
         # initialization
         est_image, old_est_image = np.copy(self.cur_image), np.copy(self.cur_image)
         est_probe, old_est_probe = np.copy(self.cur_probe), np.copy(self.cur_probe)
+        est_frm = self.img2patch(est_image) * est_probe
         pmace_args = dict(data_fit_param=pmace_data_fit_param, rho=pmace_rho, use_reg=pmace_use_reg, sigma=pmace_sigma)
         save_dir = self.save_dir + '{}/'.format(recon_approach) 
         self.check_fpath(save_dir)
 
         # reconstruction
         start_time = time.time()
-        print(recon_approach)
         print('{} reconstruction starts ...'.format(recon_approach))
         for i in range(self.num_iter):
             # ePIE reconstruction
             if recon_approach == 'ePIE':
-                print('ePIE_iter =', i)
                 est_image, est_probe = self.epie_iter(input_image=est_image, input_probe=est_probe, obj_step_sz=epie_obj_ss)
             # WF/AWF reconstruction
             if (recon_approach == 'WF') or (recon_approach == 'AWF'):
                 # AWF reconstruction
                 if accel_wf:
-                    #print('AWF_iter = ', i)
                     beta = (i + 2) / (i + 4)
                     cur_est_image = est_image + beta * (est_image - old_est_image)
-                    print(np.linalg.norm(est_image - old_est_image))
                     cur_est_probe = est_probe + beta * (est_probe - old_est_probe)
                     old_est_image, old_est_probe = np.copy(est_image), np.copy(est_probe)
                     est_image, est_probe = self.wf_iter(input_image=cur_est_image, input_probe=cur_est_probe)
                 # WF recosntruction
                 else:
-                    print('WF_iter = ', i)
                     est_image, est_probe = self.wf_iter(input_image=est_image, input_probe=est_probe)
             # SHARP/SHARP+ reconstruction
             if recon_approach == 'SHARP':
-                print('SHARP_iter =', i)
-                est_image, est_probe = self.sharp_iter(beta=sharp_relax_param, input_image=est_image, input_probe=est_probe)
+                est_image, est_probe, est_frm = self.sharp_iter(beta=sharp_relax_param, input_frm=est_frm, input_probe=est_probe)
             if recon_approach == 'SHARP+':
-                print('SHARP_plus_iter =', i)
-                est_image, est_probe = self.sharp_plus_iter(beta=sharp_plus_relax_param, input_image=est_image, input_probe=est_probe)
-
+                est_image, est_probe, est_frm = self.sharp_plus_iter(beta=sharp_plus_relax_param, input_frm=est_frm, input_probe=est_probe)
+            # PMACE reconstruction
             if (recon_approach == 'PMACE') or (recon_approach == 'reg-PMACE'):
-                print('PMACE_iter =', i)
                 est_image, est_probe = self.pmace_iter(input_image=est_image, input_probe=est_probe, **pmace_args)
 
             # phase normalization and scale image to minimize the intensity difference
@@ -162,7 +155,6 @@ class PTYCHO:
                 est_image_adj = phase_norm(est_image * self.recon_win, self.ref_obj * self.recon_win, cstr=self.recon_win)
                 cur_obj_nrmse = compute_nrmse(est_image_adj * self.recon_win, self.ref_obj * self.recon_win, cstr=self.recon_win)
                 self.obj_nrmse.append(cur_obj_nrmse)
-                print(i, cur_obj_nrmse)
             else:
                 est_image_adj = est_image
 
@@ -195,8 +187,6 @@ class PTYCHO:
 
         return output
 
-
-
     def epie_iter(self, input_image=None, input_probe=None, obj_step_sz=0.1, probe_step_sz=0.1):
         """
         Use ePIE to update the current estimate of complex object image and/or complex probe.
@@ -209,7 +199,6 @@ class PTYCHO:
             output_image: new estimate of complex image.
             output_probe: new estimate of complex probe.
         """
-        print('ePIE iter starts ///')
         # initialization 
         input_image = self.cur_image if input_image is None else input_image
         input_probe = self.cur_probe if input_probe is None else input_probe
@@ -243,7 +232,6 @@ class PTYCHO:
             output_image: new estimate of complex image.
             output_probe: new estimate of complex probe.
         """
-        #print('WF iter starts ///')
         # initialization 
         input_image = self.cur_image if input_image is None else input_image
         input_probe = self.cur_probe if input_probe is None else input_probe
@@ -278,33 +266,34 @@ class PTYCHO:
 
         return output_image, output_probe
 
-    def sharp_iter(self, beta, input_image=None, input_probe=None):
+    def sharp_iter(self, beta, input_frm=None, input_probe=None):
         """
         Use SHARP to update the current estimate of complex object image and/or complex probe.
         Args:
             beta: relaxation parameter.
-            input_image: current estimate of complex image.
-            input_probe: current estimate of complex probe.
+            input_frm: current estimate of complex frame data (product between complex image and complex probe).
+            input_probe: current estimate of complex probe. 
         Returns:
             output_image: new estimate of complex image.
             output_probe: new estimate of complex probe.
+            output_frm: revised estimate of frame data.
         """
-        print('SHARP iter starts ///')
         # initialization 
-        input_image = self.cur_image if input_image is None else input_image
+        est_frm = self.img2patch(self.cur_image) * self.cur_probe if input_frm is None else input_frm
         input_probe = self.cur_probe if input_probe is None else input_probe
-        output_image, output_probe = np.copy(input_image), np.copy(input_probe)
-        est_frm = self.img2patch(input_image) * input_probe
-        
-        # projections
+        output_probe = np.copy(input_probe)
+
+        # SHARP projections
         frm_proj_f = self.projector_fourier(est_frm)
         frm_proj_s = self.projector_space(est_frm, input_probe, self.sharp_img_wgt)
         frm_update = 2 * beta * self.projector_space(frm_proj_f, input_probe, self.sharp_img_wgt) + (1 - 2 * beta) * frm_proj_f + beta * (frm_proj_s - est_frm)
-        est_frm = frm_update
+        
+        # obtain current estimate of frame data
+        output_frm = frm_update
 
         # obtain current estimate of complex image
         output_image = self.patch2img(est_frm * np.conj(input_probe)) / self.sharp_img_wgt
-        
+
         # obtain current estimate of complex probe
         if self.joint_recon:
             tmp_n = np.average(self.img2patch(np.conj(output_image) * est_frm), axis=0)
@@ -315,31 +304,32 @@ class PTYCHO:
             sharp_tol = np.amax([1e-3, np.amax(np.abs(self.sharp_img_wgt)) * 1e-6])
             self.sharp_img_wgt[np.abs(self.sharp_img_wgt) < sharp_tol] = sharp_tol
 
-        return output_image, output_probe
+        return output_image, output_probe, output_frm
 
-    def sharp_plus_iter(self, beta, input_image=None, input_probe=None):
+    def sharp_plus_iter(self, beta, input_frm=None, input_probe=None):
         """
         Use SHARP+ to update the current estimate of complex object image and/or complex probe.
         Args:
             beta: relaxation parameter.
-            input_image: current estimate of complex image.
-            input_probe: current estimate of complex probe.
+            input_frm: current estimate of complex frame data (product between complex image and complex probe).
+            input_probe: current estimate of complex probe. 
         Returns:
             output_image: new estimate of complex image.
             output_probe: new estimate of complex probe.
+            output_frm: revised estimate of frame data.
         """
-        print('SHARP+ iter starts ///')
         # initialization 
-        input_image = self.cur_image if input_image is None else input_image
+        est_frm = self.img2patch(self.cur_image) * self.cur_probe if input_frm is None else input_frm
         input_probe = self.cur_probe if input_probe is None else input_probe
-        output_image, output_probe = np.copy(input_image), np.copy(input_probe)
-        est_frm = self.img2patch(input_image) * input_probe
+        output_probe = np.copy(input_probe)
 
-        # projections
+        # SHARP projections
         frm_proj_f = self.projector_fourier(est_frm)
         frm_proj_s = self.projector_space(est_frm, input_probe, self.sharp_img_wgt)
         frm_update = 2 * beta * self.projector_space(frm_proj_f, input_probe, self.sharp_img_wgt) + (1 - 2 * beta) * frm_proj_f - beta * (frm_proj_s - est_frm)
-        est_frm = frm_update
+        
+        # obtain current estimate of frame data
+        output_frm = frm_update
 
         # obtain current estimate of complex image
         output_image = self.patch2img(est_frm * np.conj(input_probe)) / self.sharp_img_wgt
@@ -354,7 +344,7 @@ class PTYCHO:
             sharp_tol = np.amax([1e-3, np.amax(np.abs(self.sharp_img_wgt)) * 1e-6])
             self.sharp_img_wgt[np.abs(self.sharp_img_wgt) < sharp_tol] = sharp_tol
 
-        return output_image, output_probe
+        return output_image, output_probe, output_frm
 
     def pmace_iter(self, input_image=None, input_probe=None, data_fit_param=0.5, rho=0.5, use_reg=False, sigma=0.01):
         """
@@ -365,13 +355,11 @@ class PTYCHO:
             data_fit_param: averaging weight in PMACE updates. Param near 1 gives closer fit to data.
             rho: Mann averaging parameter.
             use_reg: option of applying denoiser to PMACE.
-            sigma: denoising parameter (psd of complex bm3d software).
-
+            sigma: denoising parameter in prior model.
         Returns:
             output_image: new estimate of complex image.
             output_probe: new estimate of complex probe.
         """
-        print('PMACE iter starts ///')
         # initialization
         input_image = self.cur_image if input_image is None else input_image
         input_probe = self.cur_probe if input_probe is None else input_probe
@@ -441,6 +429,13 @@ class PTYCHO:
         return output_patches
 
     def patch2img(self, patches, output_image=None):
+        """
+        Function to project image patches back to full-sized image.
+        Args:
+            patches: image patches.
+        Returns:
+            full-sized image.
+        """
         if output_image is None:
             output_image = np.zeros(self.img_shape, dtype=self.dtype_cmplx)
         coords = self.patch_bounds
@@ -449,14 +444,15 @@ class PTYCHO:
 
         return output_image
 
-
-
-    def xbar(self, patches, normalize=True, patch_wgt=None, image_wgt=None):
-        #if patch_wgt is None:
-        #    patch_wgt = np.ones(self.patch_shape, dtype=self.dtype_real)
-        #if image_wgt is None:
-        #    image_wgt = self.patch2img(patches)
-        
+    def xbar(self, patches, normalize=True):
+        """
+        Function to obtain consensus result from image patches.
+        Args:
+            patches: image patches.
+            normalize: option to do normalization.
+        Returns:
+            full-sized image.
+        """
         # initialization
         output_image = np.zeros(self.img_shape, dtype=self.dtype_cmplx)
         weighted_patches = (self.pmace_patch_wgt * patches).astype(self.dtype_cmplx)
@@ -472,13 +468,30 @@ class PTYCHO:
         
         return output_image.astype(self.dtype_cmplx)
 
-    def dbar(self, probe_mat, patches, image_exp):
-        img_wgt = np.abs(patches, dtype=self.dtype_real) ** image_exp
+    def dbar(self, probe_mat, patches):
+        """
+        Function to obtain consensus result from probe mat.
+        Args:
+            probe_mat: spacing-varying probes.
+            patches: projected image patches.
+        Returns:
+            complex probe.
+        """
+        img_wgt = np.abs(patches, dtype=self.dtype_real) ** self.image_exp
         output = np.sum(probe_mat * img_wgt, 0) / np.sum(img_wgt, 0)
 
         return output.astype(self.dtype_cmplx)
 
     def operator_F(self, cur_est, joint_est, data_fit_param):
+        """
+        Fit data using stack of weighted proximal map functions.
+        Args:
+            cur_est: current estimate of image patches / complex probe.
+            joint_est: current estimate of complex probe / image patches.
+            data_fit_param: averaging weight in PMACE updates. Param near 1 gives closer fit to data.
+        Returns:
+            new estimate of projected images / complex probe.
+        """
         # FT{D*v_j}
         freq = compute_ft(cur_est * joint_est)
         
@@ -494,9 +507,22 @@ class PTYCHO:
 
         return output
 
-    def operator_G(self, patches, probe_est, use_reg=False, bm3d_psd=0.1, patch_wgt=None, image_wgt=None):
-        xbar_image = self.xbar(patches, patch_wgt=patch_wgt, image_wgt=image_wgt)
+    def operator_G(self, patches, probe_est, use_reg=False, bm3d_psd=0.1):
+        """
+        Consensus operator which takes spatially weighted average of input image patches and 
+        reallocates the results.
+        Args:
+            patches: current estimate of image patches.
+            probe_est: current estimate of complex probe.
+            use_reg: add serial regularization.
+            bm3d_psd: psd of complex bm3d software.
+        Returns:
+            new estimate of projected images.
+        """
+        # take weighted average of input image patches
+        xbar_image = self.xbar(patches, normalize=True)
 
+        # apply complex bm3d
         if use_reg:
             # restrict to valid region for denoiser
             block_idx = self.blk_idx
@@ -511,6 +537,11 @@ class PTYCHO:
         return xbar_image, output_patches
 
     def check_fpath(self, fpath):
+        """
+        Create directory if it does not exist.
+        Args:
+            fpath: fire directory.
+        """
         if fpath is not None:
             os.makedirs(fpath, exist_ok=True)
 
