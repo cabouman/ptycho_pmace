@@ -175,10 +175,12 @@ class PTYCHO:
 
         # save recon results
         save_tiff(est_image, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
-        save_array(self.obj_nrmse, save_dir  + 'obj_nrmse_' + str(self.obj_nrmse[-1]))
+        if self.obj_nrmse:
+            save_array(self.obj_nrmse, save_dir  + 'obj_nrmse_' + str(self.obj_nrmse[-1]))
         if self.joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-            save_array(self.probe_nrmse, save_dir + 'probe_nrmse_' + str(self.probe_nrmse[-1]))
+            if self.probe_nrmse:
+                save_array(self.probe_nrmse, save_dir + 'probe_nrmse_' + str(self.probe_nrmse[-1]))
 
         # return recon results
         keys = ['obj_revy', 'obj_err', 'probe_revy', 'probe_err']
