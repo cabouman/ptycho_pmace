@@ -81,6 +81,12 @@ class PTYCHO:
         pmace_tol = np.amax([1e-3, np.amax(np.abs(self.pmace_image_wgt)) * 1e-6])
         self.pmace_image_wgt[np.abs(self.pmace_image_wgt) < pmace_tol] = pmace_tol
 
+    def reset(self):
+        """
+        Reset attributes.
+        """
+        self.obj_nrmse = []
+        self.probe_nrmse = []
 
     def plot_img(self, img):
         plt.subplot(121)
