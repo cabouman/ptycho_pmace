@@ -58,8 +58,10 @@ class PTYCHO:
         # recon
         self.num_iter = num_iter
         non_zero_idx = np.nonzero(self.recon_win)
-        self.blk_idx = [np.amin(non_zero_idx[0]), np.amax(non_zero_idx[0]) + 1,
-                        np.amin(non_zero_idx[1]), np.amax(non_zero_idx[1]) + 1]
+        topr, topl = np.maximum(0, np.amin(non_zero_idx[0])), np.minimum(np.amax(non_zeros_idx[0])+1, self.img_shape[0])
+        botr, botl = np.maximum(0, np.amin(non_zero_idx[1])), np.minimum(np.amax(non_zeros_idx[1])+1, self.img_shape[1])
+        self.blk_idx = [topr, topl, botr, botl]
+        
         # epie 
         self.seq = np.arange(0, len(self.y_meas), 1).tolist()
 
