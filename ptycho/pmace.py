@@ -111,13 +111,14 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
     obj_nrmse_ls = []
     probe_nrmse_ls = []
     dp_nrmse_ls = []
-
+        
     # PMACE reconstruction
     print('{} recon starts ...'.format(approach))
     start_time = time.time()
     for i in range(num_iter):
         # w <- F(v; w)
         obj_mat = weighted_prox_map(updated_obj_mat, probe_concensus_output, dp, obj_pm)
+        
         # z <- G(2w - v)
         obj_wgt = patch2img(np.ones(dp.shape, dtype=np.complex128) * (np.abs(probe_concensus_output) ** probe_exp),
                                      project_coords, init_obj.shape)
@@ -131,30 +132,29 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
                                 init_obj.shape, obj_wgt)
 
         if joint_recon:
+            probe_mat_weight = np.abs(obj_concensus_output)  ** obj_exp
+            probe_weight = np.sum(probe_mat_weight, 0)
             # w <- F(v; w)
-            probe_mat = weighted_prox_map(updated_probe_mat, obj_concensus_output, dp,
-                                          probe_pm)  # image weighted proximal map
+            probe_mat = weighted_prox_map(updated_probe_mat, obj_concensus_output, dp, probe_pm)  # image weighted proximal map
             # z <- G(2w - v)
             # probe_concensus_output = np.average((2 * probe_mat - probe_mat_update), axis=0)
             probe_concensus_output = np.sum(
-                (2 * probe_mat - updated_probe_mat) * (np.abs(obj_concensus_output) ** obj_exp), 0) / np.sum(
-                (np.abs(obj_concensus_output) ** obj_exp), 0)
+                (2 * probe_mat - updated_probe_mat) * probe_mat_weight, 0) / probe_weight
             # v <- v + 2 \rho (z - w)
             updated_probe_mat += 2 * rho * (probe_concensus_output - probe_mat)
             # obtain current estimate of complex images
             # probe_est = np.average(probe_mat_update, axis=0)
-            probe_est = np.sum(updated_probe_mat * (np.abs(obj_concensus_output) ** obj_exp), 0) / np.sum(
-                (np.abs(obj_concensus_output) ** obj_exp), 0)
+            probe_est = np.sum(updated_probe_mat * probe_mat_weight, 0) / probe_weight
 
-        # compute the NRMSE between forward propagated reconstruction result and recorded measurements
-        dp_est = np.abs(compute_ft(probe_est * img2patch(np.copy(obj_est), project_coords, dp.shape)))
-        dp_nrmse_val = compute_nrmse(dp_est, dp)
-        dp_nrmse_ls.append(dp_nrmse_val)
+        ## compute the NRMSE between forward propagated reconstruction result and recorded measurements
+        #dp_est = np.abs(compute_ft(probe_est * img2patch(np.copy(obj_est), project_coords, dp.shape)))
+        #dp_nrmse_val = compute_nrmse(dp_est, dp)
+        #dp_nrmse_ls.append(dp_nrmse_val)
 
         # phase normalization and scale image to minimize the intensity difference
         if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
-            obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
+            obj_revy = phase_norm(np.copy(obj_est)*cstr_win, obj_ref*cstr_win, cstr=cstr_win)
+            obj_nrmse_val = compute_nrmse(obj_revy*cstr_win, obj_ref*cstr_win, cstr=cstr_win)
             obj_nrmse_ls.append(obj_nrmse_val)
         else:
             obj_revy = obj_est
@@ -171,12 +171,13 @@ def pmace_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, pro
     print('Time consumption of {}:'.format(approach), elapsed_time)
 
     # save recon results
-    save_tiff(obj_est, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
-    save_array(obj_nrmse_ls, save_dir + 'obj_nrmse')
-    save_array(dp_nrmse_ls, save_dir + 'diffr_nrmse')
-    if joint_recon:
-        save_tiff(probe_est, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-        save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
+    if save_dir is not None:
+        save_tiff(obj_est, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
+        save_array(obj_nrmse_ls, save_dir + 'obj_nrmse')
+        save_array(dp_nrmse_ls, save_dir + 'diffr_nrmse')
+        if joint_recon:
+            save_tiff(probe_est, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
+            save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
 
     # return recon results
     keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
