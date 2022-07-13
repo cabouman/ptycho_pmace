@@ -367,33 +367,35 @@ def img2patch(img, coords, patch_sz):
     return output
 
 
-def compute_ft(input, threads=1):
+def compute_ft(input_array, threads=None):
     """
     Function to take 2D DFT of input using pyfftw.
-    :param input: input (image).
+    :param input_array: input (image).
     :param threads: number of threads for performing DFT using pyfftw..
     :return: 2D DFT of input (spectrum).
     """
-    pyfftw_input = np.fft.fftshift(input, axes=(-2, -1))
-    freq = pyfftw.interfaces.numpy_fft.fft2(pyfftw_input, s=None, axes=(-2, -1), norm='ortho', overwrite_input=False,
-                                            planner_effort='FFTW_MEASURE', threads=threads, auto_align_input=True,
-                                            auto_contiguous=True)
-    output = np.fft.ifftshift(freq, axes=(-2, -1))
+    if threads = None:
+        threads = mp.cpu_count()
+    a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
+    b = np.zeros_like(a)
+    fft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_FORWARD', threads=threads)
+    output = np.fft.ifftshift(fft_object(), axes=(-2, -1))
 
     return output
 
 
-def compute_ift(input, threads=1):
+def compute_ift(input_array, threads=None):
     """
     Function to take 2D inverse DFT of input using pyfftw.
-    :param input: input (spectrum).
+    :param input_array: input (spectrum).
     :param threads: number of threads for performing IDFT using pyfftw.
     :return: IFT of input (image).
     """
-    pyfftw_input = np.fft.fftshift(input, axes=(-2, -1))
-    image = pyfftw.interfaces.numpy_fft.ifft2(pyfftw_input, s=None, axes=(-2, -1), norm='ortho', overwrite_input=False,
-                                              planner_effort='FFTW_MEASURE', threads=threads, auto_align_input=True,
-                                              auto_contiguous=True)
+    if threads is None:
+        threads = mp.cpu_count()
+    a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
+    b = np.zeros_like(a)
+    ifft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_BACKWARD', threads=threads)
     output = np.fft.ifftshift(image, axes=(-2, -1))
 
     return output
