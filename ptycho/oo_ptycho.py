@@ -57,6 +57,7 @@ class PTYCHO:
         
         # recon
         self.num_iter = num_iter
+        # TODO: confirm the region for applying denoiser
         non_zero_idx = np.nonzero(self.recon_win)
         topr, topl = np.maximum(0, np.amin(non_zero_idx[0])), np.minimum(np.amax(non_zeros_idx[0])+1, self.img_shape[0])
         botr, botl = np.maximum(0, np.amin(non_zero_idx[1])), np.minimum(np.amax(non_zeros_idx[1])+1, self.img_shape[1])
@@ -517,13 +518,12 @@ class PTYCHO:
 
         return output
 
-    def operator_G(self, patches, probe_est, use_reg=False, bm3d_psd=0.1):
+    def operator_G(self, patches, use_reg=False, bm3d_psd=0.1):
         """
         Consensus operator which takes spatially weighted average of input image patches and 
         reallocates the results.
         Args:
             patches: current estimate of image patches.
-            probe_est: current estimate of complex probe.
             use_reg: add serial regularization.
             bm3d_psd: psd of complex bm3d software.
         Returns:
