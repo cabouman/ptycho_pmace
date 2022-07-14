@@ -2,158 +2,151 @@ from ptycho_pmace.utils.utils import *
 from ptycho_pmace.utils.nrmse import *
 
 
-def wf_obj_func(current_est, probe_ref, diffr_data, coords, discretized_sys_mat, param=1):
+def wf_obj_func(cur_est, probe, y_meas, patch_bounds, discretized_sys_mat, prm=1):
     """
-    Function to determine the gradient descent updates of complex object estimate.
-    :param current_est: the current estimate of complex object.
-    :param probe_ref: known complex probe.
-    :param diffr_data: pre-processed diffraction pattern (intensity data).
-    :param coords: coordinates of projections.
-    :param discretized_sys_mat: to calculate the step size.
-    :param param: hyper-parameter, param=1 if Fourier transform is orthonormal.
-    :return: updated estimate of complex object.
+    Function to revise estimate of complex object using WF.
+    Args:
+        cur_est: current estimate of complex object. 
+        probe: complex probe. 
+        y_meas: pre-processed measurements.
+        patch_bounds: scan coordinates of projections.
+        discretized_sys_mat: the eigen value is used to obtain step size.
+        prm: prm is 1 when FT is orthonormal.
+    Return:
+        revised estimate of complex object.
     """
+    # take projection of image
+    patch = img2patch(cur_est, patch_bounds, y_meas.shape)
     # Ax = FT{D*P_j*v}
-    projected_patch = img2patch(current_est, coords, diffr_data.shape)
-    # Ax = FT{D*P_j*v}
-    spectrum = compute_ft(probe_ref * projected_patch)
+    f = compute_ft(patch * probe)
     # Ax - y * Ax / |Ax| = - FT{D * P_j * v} - y * FT{D * P_j * v} / |FT{D * P_j * v}|
-    spectrum_update = spectrum - diffr_data * np.exp(1j * np.angle(spectrum))
     # A^(H){```} = P^t D^* IFFT{```}
-    patch_update = compute_ift(spectrum_update)
+    inv_f = compute_ift(f - y_meas * np.exp(1j * np.angle(f)))
     # back projection
-    img_update = patch2img(np.conj(probe_ref) * patch_update, coords, current_est.shape)
-    # step_sz = 1/biggest eigenvalue of semi positive deifnite matrix =1/\lambda_max(A^(H)A)=1/(alpha*sum_j |D_j|^2)
-    output = current_est - img_update / np.amax(param * discretized_sys_mat)
-
-    return output
+    output = cur_est - patch2img(inv_f * np.conj(probe), patch_bounds, cur_est.shape) / np.amax(prm * discretized_sys_mat)
+    
+    return output.astype(np.complex64)
 
 
-def wf_probe_func(current_est, projected_img, diffr_data, discretized_sys_mat, param=1):
+def wf_probe_func(cur_est, img_patch, y_meas, discretized_sys_mat, prm=1):
     """
-    Function to determine the gradient descent update of complex probe estimate.
-    :param current_est: current estimate of complex probe.
-    :param projected_img: projected image patch of current estimate of complex object.
-    :param diffr_data: pre-processed diffraction pattern (intensity data).
-    :param discretized_sys_mat: to calculate step size.
-    :param param: hypter-param, param=1 if Fourier transform is orthonormal.
-    :return: new estimate of complex probe.
+    Function to revise estimate of complex probe using WF.
+    Args:
+        cur_est: current estimate of complex probe.
+        img_patch: projected image patches.
+        y_meas: pre-processed measurements.
+        discretized_sys_mat: the eigen value is used to obtain step size for probe function.
+        prm: prm = 1 if FT is orthonormal.
+    Return:
+        new estimate of complex probe.
     """
-
     # Bd = FT{D*X_j*d}
-    freq = compute_ft(current_est * projected_img)
+    f = compute_ft(cur_est * img_patch)
     # Bd - y * Bd / |Bd| =  FT{D*X_j*d} - y * FT{D*X_j*d} / |FT{D*X_j*d}|
-    freq_update = freq - diffr_data * np.exp(1j * np.angle(freq))
     # B^(H){```} = (X_j)^(H) IFFT{```}
-    probe_mat = np.conj(projected_img) * compute_ift(freq_update)
+    inv_f = compute_ift(f - y_meas * np.exp(1j * np.angle(f)))
     # step_sz = 1/biggest eigenvalue of semi positive deifnite matrix =1/\lambda_max(A^(H)A)=1/(alpha*sum_j |D_j|^2)
-    output = current_est - probe_mat / np.amax(param * discretized_sys_mat)
+    output = cur_est - np.average(np.conj(img_patch) * inv_f / np.amax(prm * discretized_sys_mat), axis=0)
+    
+    return output.astype(np.complex64)
 
-    return output
-
-
-def wf_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, probe_ref=None,
-             accel=True, num_iter=100, joint_recon=False, cstr_win=None, save_dir=None):
+def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None, 
+             num_iter=100, joint_recon=False, recon_win=None, save_dir=None, accel=True):
     """
     Function to perform WF/AWF reconstruction on ptychographic data.
-    :param dp: pre-processed diffraction pattern (intensity data).
-    :param project_coords: scan coordinates of projections.
-    :param init_obj: formulated initial guess of complex object.
-    :param init_probe: formulated initial guess of complex probe.
-    :param obj_ref: complex reference image.
-    :param probe_ref: complex reference image.
-    :param accel: with or without Nesterov acceleration.
-    :param num_iter: number of iterations.
-    :param joint_recon: option to recover complex probe for blind ptychography.
-    :param cstr_win: pre-defined/assigned window for comparing reconstruction results.
-    :param save_dir: directory to save reconstruction results.
-    :return: reconstructed images and error metrics.
+    Args:
+        y_meas: pre-processed measurements (diffraction patterns / intensity data).
+        patch_bounds: scan coordinates of projections.
+        init_obj: formulated initial guess of complex object.
+        init_probe: formulated initial guess of complex probe.
+        ref_obj: complex reference image for object.
+        ref_probe: complex reference image for probe.
+        num_iter: number of iterations.
+        joint_recon: option to estimate complex probe for blind ptychography.
+        recon_win: pre-defined window for showing and comparing reconstruction results.
+        save_dir: directory to save reconstruction results.
+        accel: option to add Nesterov's acceleration.
+    Return:
+        Reconstructed complex images and NRMSE between reconstructions and reference images.
     """
-    # check directory
+    cdtype = np.complex64
     approach = 'AWF' if accel else 'WF'
+    # check directory
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
 
     # initialization
-    if cstr_win is None:
-        cstr_win = np.ones_like(init_obj)
+    if recon_win is None:
+        recon_win = np.ones_like(init_obj)
 
-    obj_est = np.copy(init_obj)
-    obj_old_est = np.copy(init_obj)
-    probe_est = np.copy(init_probe) if joint_recon else np.copy(probe_ref)
-    probe_old_est = np.copy(init_probe) if joint_recon else np.copy(probe_ref)
+    nrmse_obj = []
+    nrmse_probe = []
 
-    obj_nrmse_ls = []
-    probe_nrmse_ls = []
-    dp_nrmse_ls = []
-    time_ls = []
+    est_obj = np.asarray(init_obj, dtype=cdtype)
+    old_obj = np.copy(est_obj)
+
+    est_probe = np.asarray(init_probe, dtype=cdtype) if joint_recon else ref_probe.astype(cdtype)
+    old_probe = np.copy(est_probe)
+
+    # calculate weight matrix for object update function
+    obj_wgt_mat = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, est_obj.shape)
 
     # WF reconstruction
-    print('{} recon starts ...'.format(approach))
     start_time = time.time()
+    print('{} recon starts ...'.format(approach))
     for i in range(num_iter):
         if accel:
             beta = (i + 2) / (i + 4)
         else:
             beta = 0
+        # revise estimate of complex object
+        cur_obj = est_obj + beta * (est_obj - old_obj)
+        old_obj = np.copy(est_obj)
+        est_obj = wf_obj_func(cur_obj, est_probe, y_meas, patch_bounds, obj_wgt_mat)
 
-        # update estimate of complex object
-        probe_mat = [probe_est] * len(dp)
-        obj_step_sz_mat = patch2img(np.abs(probe_mat) ** 2, project_coords, init_obj.shape)
-
-        current_obj_est = obj_est + beta * (obj_est - obj_old_est)
-        obj_old_est = np.copy(obj_est)
-        obj_est = wf_obj_func(current_obj_est, probe_est, dp, project_coords, obj_step_sz_mat)
-
-        # update estimate of complex probe
         if joint_recon:
-            projected_img_patch = img2patch(obj_est, project_coords, dp.shape)
-            probe_step_sz_mat = np.sum(np.abs(projected_img_patch) ** 2, 0)
-
-            current_probe_est = probe_est + beta * (probe_est - probe_old_est)
-            probe_old_est = np.copy(probe_est)
-            probe_mat_est = wf_probe_func(current_probe_est, projected_img_patch, dp, probe_step_sz_mat)
-            probe_est = np.average(probe_mat_est, axis=0)
-
-        # calculate time consumption
-        elapsed_time = time.time() - start_time
-        time_ls.append(elapsed_time)
-
-        # compute the NRMSE between forward propagated reconstruction result and recorded measurements
-        dp_est = np.abs(compute_ft(probe_est * img2patch(np.copy(obj_est), project_coords, dp.shape)))
-        dp_nrmse_val = compute_nrmse(dp_est, dp)
-        dp_nrmse_ls.append(dp_nrmse_val)
+            # calculate weight matrix for probe update function
+            est_patch = img2patch(est_obj, patch_bounds, y_meas.shape)
+            probe_wgt_mat = np.sum(np.abs(est_patch) ** 2, 0)
+            # revise estimate of complex probe
+            cur_probe = est_probe + beta * (est_probe - old_probe)
+            old_probe = np.copy(est_probe)
+            est_probe = wf_probe_func(cur_probe, est_patch, y_meas, probe_wgt_mat)
+            # update weight matrix for object update function
+            obj_wgt_mat = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, est_obj.shape)
 
         # phase normalization and scale image to minimize the intensity difference
-        if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
-            obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
-            obj_nrmse_ls.append(obj_nrmse_val)
+        if ref_obj is not None:
+            revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
+            err_obj = compute_nrmse(revy_obj * recon_win, ref_obj * recon_win, cstr=recon_win)
+            nrmse_obj.append(err_obj)
         else:
-            obj_revy = obj_est
-
-        if probe_ref is not None:
-            probe_revy = phase_norm(np.copy(probe_est), probe_ref)
-            probe_nrmse_val = compute_nrmse(probe_revy, probe_ref)
-            probe_nrmse_ls.append(probe_nrmse_val)
+            revy_obj = est_obj 
+        if joint_recon:
+            if ref_probe is not None:
+                revy_probe = phase_norm(np.copy(est_probe), ref_probe)
+                err_probe = compute_nrmse(revy_probe, ref_probe)
+                nrmse_probe.append(err_probe)
+            else:
+                revy_probe = est_probe
         else:
-            probe_revy = probe_est
+            revy_probe = est_probe
 
     # calculate time consumption
-    elapsed_time = time.time() - start_time
-    print('Time consumption of {}:'.format(approach), elapsed_time)
+    print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
     # save recon results
-    save_tiff(obj_est, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
-    save_array(obj_nrmse_ls, save_dir + 'obj_nrmse')
-    save_array(dp_nrmse_ls, save_dir + 'diffr_nrmse')
-    if joint_recon:
-        save_tiff(probe_est, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-        save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
+    if save_dir is not None:
+        save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
+        save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if joint_recon:
+            save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
+            save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
-    keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
-    vals = [obj_revy, probe_revy, obj_nrmse_ls, probe_nrmse_ls, dp_nrmse_ls]
+    keys = ['object', 'probe', 'err_obj', 'err_probe']
+    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe]
     output = dict(zip(keys, vals))
 
     return output
+
