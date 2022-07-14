@@ -137,7 +137,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         if joint_recon:
             # calculate probe weights
             probe_arr_weight = np.abs(consens_patch) ** obj_exp
-            probe_weight = np.sum(probe_mat_weight, 0)
+            probe_weight = np.sum(probe_arr_weight, 0)
             # w <- F(v; w)
             cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, y_meas, probe_data_fit_prm)
             # z <- G(2w - v)

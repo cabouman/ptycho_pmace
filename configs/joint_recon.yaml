@@ -22,7 +22,7 @@ SHARP_plus:
   out_dir: SHARP_plus/
 PMACE:
   obj_prm: 0.5
-  probe_prm: 1
+  probe_prm: 0.5
   probe_exp: 1.5
   obj_exp: 0.5
   out_dir: PMACE/
