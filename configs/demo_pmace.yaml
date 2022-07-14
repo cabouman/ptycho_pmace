@@ -20,10 +20,10 @@ SHARP_plus:
   relax_pm: 0.8
   out_dir: SHARP_plus/
 PMACE:
-  alpha: 0.3
+  alpha: 0.7
   out_dir: PMACE/
 reg-PMACE:
-  alpha: 0.3
+  alpha: 0.7
   bm3d_psd: 0.02
   out_dir: reg-PMACE/
 output:
