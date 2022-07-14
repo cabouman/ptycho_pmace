@@ -6,6 +6,7 @@ from .display import *
 from .nrmse import *
 import pandas as pd
 import numpy as np
+import multiprocessing as mp
 from scipy import signal
 
 
@@ -374,7 +375,7 @@ def compute_ft(input_array, threads=None):
     :param threads: number of threads for performing DFT using pyfftw..
     :return: 2D DFT of input (spectrum).
     """
-    if threads = None:
+    if threads is None:
         threads = mp.cpu_count()
     a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     b = np.zeros_like(a)
@@ -396,7 +397,7 @@ def compute_ift(input_array, threads=None):
     a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     b = np.zeros_like(a)
     ifft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_BACKWARD', threads=threads)
-    output = np.fft.ifftshift(image, axes=(-2, -1))
+    output = np.fft.ifftshift(ifft_object(), axes=(-2, -1))
 
     return output
 
