@@ -174,7 +174,6 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     if save_dir is not None:
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
         save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
-        #save_array(dp_nrmse_ls, save_dir + 'diffr_nrmse')
         if joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
             save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))

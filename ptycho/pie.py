@@ -1,101 +1,96 @@
-from ptycho_pmace.utils.utils import *
-from ptycho_pmace.utils.nrmse import *
+from utils.utils import *
 import random
 
 
-def epie_recon(dp, project_coords, init_obj, init_probe=None, obj_ref=None, probe_ref=None,
-               num_iter=100, obj_step_sz=1, probe_step_sz=1, joint_recon=False, cstr_win=None, save_dir=None):
+def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
+               num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
+               obj_step_sz=0.5, probe_step_sz=0.5):
     """
-    Function to perform ePIE reconstruction on ptychographic data.
-    :param dp: pre-processed diffraction pattern (intensity data).
-    :param project_coords: scan coordinates of projections.
-    :param init_obj: formulated initial guess of complex object.
-    :param init_probe: formulated initial guess of complex probe.
-    :param obj_ref: complex reference image.
-    :param probe_ref: complex reference image.
-    :param num_iter: number of iterations.
-    :param obj_step_sz: step size parameter for updating object estimate.
-    :param probe_step_sz: step size parameter for updating probe estiamte.
-    :param joint_recon: option to recover complex probe for blind ptychography.
-    :param cstr_win: pre-defined/assigned window for comparing reconstruction results.
-    :param save_dir: directory to save reconstruction results.
-    :return: reconstructed images and error metrics.
+    Function to perform PMACE reconstruction on ptychographic data.
+    Args:
+        y_meas: pre-processed measurements (diffraction patterns / intensity data).
+        patch_bounds: scan coordinates of projections.
+        init_obj: formulated initial guess of complex object.
+        init_probe: formulated initial guess of complex probe.
+        ref_obj: complex reference image for object.
+        ref_probe: complex reference image for probe.
+        num_iter: number of iterations.
+        joint_recon: option to estimate complex probe for blind ptychography.
+        recon_win: pre-defined window for showing and comparing reconstruction results.
+        save_dir: directory to save reconstruction results.
+        obj_step_sz: step size parameter for updating object estimate.
+        probe_step_sz: step size parameter for updating probe estimate.
+    Return:
+        Reconstructed complex images and NRMSE between reconstructions and reference images.
     """
+    cdtype = np.complex64
+    approach = 'ePIE'
     # check directory
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
 
     # initialization
-    if cstr_win is None:
-        cstr_win = np.ones_like(init_obj)
+    if recon_win is None:
+        recon_win = np.ones_like(init_obj)
 
-    num_agts, m, n = dp.shape
-    seq = np.arange(0, num_agts, 1).tolist()
-    obj_est = np.asarray(np.copy(init_obj), dtype=np.complex128)
-    probe_est = np.asarray(np.copy(init_probe), dtype=np.complex128) if joint_recon else np.copy(probe_ref)
-    obj_nrmse_ls = []
-    probe_nrmse_ls = []
-    dp_nrmse_ls = []
-    time_ls = []
+    nrmse_obj = []
+    nrmse_probe = []
+    seq = np.arange(0, len(y_meas), 1).tolist()
+
+    est_obj = np.copy(init_obj).astype(cdtype)
+    est_probe = np.copy(init_probe).astype(cdtype) if joint_recon else np.copy(ref_probe).astype(cdtype)
 
     # ePIE reconstruction
-    print('ePIE recon starts ...')
     start_time = time.time()
+    print('ePIE recon starts ...')
     for i in range(num_iter):
         random.shuffle(seq)
         for j in seq:
-            crd0, crd1, crd2, crd3 = project_coords[j, 0], project_coords[j, 1], project_coords[j, 2], project_coords[j, 3]
-            projected_img = np.copy(obj_est[crd0:crd1, crd2:crd3])
-            frm = projected_img * probe_est
+            crd0, crd1, crd2, crd3 = patch_bounds[j, 0], patch_bounds[j, 1], patch_bounds[j, 2], patch_bounds[j, 3]
+            projected_img = np.copy(est_obj[crd0:crd1, crd2:crd3])
+            frm = projected_img * est_probe
             # take Fourier Transform
-            spectr = compute_ft(frm)
-            updated_spectr = dp[j] * divide_cmplx_numbers(np.copy(spectr), np.abs(np.copy(spectr)))
-            # update object and probe estimates
-            delta_frm = compute_ift(updated_spectr) - frm
-            obj_est[crd0:crd1, crd2:crd3] += obj_step_sz * np.conj(probe_est) * delta_frm / (np.amax(np.abs(probe_est)) ** 2)
+            f = compute_ft(frm)
+            # revise estimate of frame data
+            delta_frm = compute_ift(y_meas[j] * np.exp(1j * np.angle(f))) - frm
+            # revise estimates of complex object
+            est_obj[crd0:crd1, crd2:crd3] += obj_step_sz * np.conj(est_probe) * delta_frm / (np.amax(np.abs(est_probe)) ** 2)
             if joint_recon:
-                probe_est += probe_step_sz * np.conj(projected_img) * delta_frm / (np.amax(np.abs(projected_img)) ** 2)
-
-        # calculate time consumption
-        elapsed_time = time.time() - start_time
-        time_ls.append(elapsed_time)
-
-        # compute the NRMSE between forward propagated reconstruction result and recorded measurements
-        dp_est = np.abs(compute_ft(probe_est * img2patch(np.copy(obj_est), project_coords, dp.shape)))
-        dp_nrmse_val = compute_nrmse(dp_est, dp)
-        dp_nrmse_ls.append(dp_nrmse_val)
-
+                est_probe += probe_step_sz * np.conj(projected_img) * delta_frm / (np.amax(np.abs(projected_img)) ** 2)
+    
         # phase normalization and scale image to minimize the intensity difference
-        if obj_ref is not None:
-            obj_revy = phase_norm(np.copy(obj_est) * cstr_win, obj_ref * cstr_win)
-            obj_nrmse_val = compute_nrmse(obj_revy * cstr_win, obj_ref * cstr_win, cstr_win)
-            obj_nrmse_ls.append(obj_nrmse_val)
+        if ref_obj is not None:
+            revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
+            err_obj = compute_nrmse(revy_obj * recon_win, ref_obj * recon_win, cstr=recon_win)
+            nrmse_obj.append(err_obj)
         else:
-            obj_revy = obj_est
-
-        if probe_ref is not None:
-            probe_revy = phase_norm(np.copy(probe_est), probe_ref)
-            probe_nrmse_val = compute_nrmse(probe_revy, probe_ref)
-            probe_nrmse_ls.append(probe_nrmse_val)
+            revy_obj = est_obj 
+        if joint_recon:
+            if ref_probe is not None:
+                revy_probe = phase_norm(np.copy(est_probe), ref_probe)
+                err_probe = compute_nrmse(revy_probe, ref_probe)
+                nrmse_probe.append(err_probe)
+            else:
+                revy_probe = est_probe
         else:
-            probe_revy = probe_est
+            revy_probe = est_probe
 
     # calculate time consumption
-    elapsed_time = time.time() - start_time
-    print('Time consumption of ePIE:', elapsed_time)
+    print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
     # save recon results
-    save_tiff(obj_est, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
-    save_array(obj_nrmse_ls,  save_dir + 'obj_nrmse')
-    save_array(dp_nrmse_ls, save_dir + 'diffr_nrmse')
-    if joint_recon:
-        save_tiff(probe_est, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-        save_array(probe_nrmse_ls, save_dir + 'probe_nrmse')
+    if save_dir is not None:
+        save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
+        save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if joint_recon:
+            save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
+            save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
-    keys = ['obj_revy', 'probe_revy', 'obj_err', 'probe_err', 'diffr_err']
-    vals = [obj_revy, probe_revy, obj_nrmse_ls, probe_nrmse_ls, dp_nrmse_ls]
+    keys = ['object', 'probe', 'err_obj', 'err_probe']
+    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe]
     output = dict(zip(keys, vals))
 
     return output
+
 
