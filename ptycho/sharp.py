@@ -107,7 +107,7 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             tmp_d = np.average(img2patch(np.abs(est_obj) ** 2, patch_bounds, y_meas.shape), axis=0)
             est_probe = divide_cmplx_numbers(tmp_n, tmp_d)
             # update image weights
-            img_wgt = patch2img(np.abs([probe_est] * len(y_meas)) ** 2, patch_bounds, img_sz)
+            img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
 
         # # dynamic strategy for updating beta
         # beta = beta + (1 - beta) * (1 - np.exp(-(i/7)**3))
@@ -212,7 +212,7 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
             tmp_d = np.average(img2patch(np.abs(est_obj) ** 2, patch_bounds, y_meas.shape), axis=0)
             est_probe = divide_cmplx_numbers(tmp_n, tmp_d)
             # update image weights
-            img_wgt = patch2img(np.abs([probe_est] * len(y_meas)) ** 2, patch_bounds, img_sz)
+            img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
 
         # # dynamic strategy for updating beta
         # beta = beta + (1 - beta) * (1 - np.exp(-(i/7)**3))

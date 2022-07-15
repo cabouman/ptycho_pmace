@@ -116,9 +116,9 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     # determine the area for applying denoiser
     denoising_blk = patch2img(np.ones_like(y_meas), patch_bounds, init_obj.shape)
     dn_idx = np.nonzero(denoising_blk)
-    topr, topl = np.max([0, np.amin(dn_idx[0])]), np.min([np.amax(dn_idx[0])+1, est_obj.shape[0]])
-    botr, botl = np.max([0, np.amin(dn_idx[1])]), np.min([np.amax(dn_idx[1])+1, est_obj.shape[1]])
-    blk_idx = [topr, topl, botr, botl]
+    crd0, crd1 = np.max([0, np.amin(dn_idx[0])]), np.min([np.amax(dn_idx[0])+1, est_obj.shape[0]])
+    crd2, crd3 = np.max([0, np.amin(dn_idx[1])]), np.min([np.amax(dn_idx[1])+1, est_obj.shape[1]])
+    blk_idx = [crd0, crd1, crd2, crd3]
 
     start_time = time.time()
     print('{} recon starts ...'.format(approach))
@@ -127,7 +127,8 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         # w <- F(v; w)
         cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
         # z <- G(2w - v)
-        est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds, img_wgt=image_weight, img_sz=image_sz, add_reg=add_reg, bm3d_psd=sigma, blk_idx=blk_idx)
+        est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds, img_wgt=image_weight, 
+                                            img_sz=image_sz, add_reg=add_reg, bm3d_psd=sigma, blk_idx=blk_idx)
         # v <- v + 2 \rho (z - w)
         new_patch = new_patch + 2 * rho * (consens_patch - cur_patch)
         # obtain estimate of complex object
