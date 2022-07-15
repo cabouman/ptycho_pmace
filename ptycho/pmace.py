@@ -15,9 +15,6 @@ def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
     """
     # DFT{D * P_j * v}
     f = compute_ft(cur_est * joint_est)
-    ## y * DFT{D * P_j * v} / | DFT{D * P_j * v} |
-    #new_f = (y_meas * np.angle(f)).astype(np.complex64)
-
     # IDFT{y * DFT{D * P_j * v} / | DFT{D * P_j * v} |}
     inv_f = compute_ift(y_meas * divide_cmplx_numbers(f, np.abs(f)))
     # take weighted average of current estimate and closest data-fitting point
