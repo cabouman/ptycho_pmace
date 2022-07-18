@@ -3,7 +3,7 @@ from pathlib import Path
 root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
 import argparse, yaml
-from ptycho_pmace.utils.utils import *
+from utils.utils import *
 
 
 '''

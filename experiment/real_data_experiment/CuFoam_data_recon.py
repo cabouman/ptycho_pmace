@@ -5,8 +5,8 @@ sys.path.append(str(root_dir))
 import argparse, yaml
 import datetime as dt
 from shutil import copyfile
-from ptycho_pmace.utils.utils import *
-from ptycho_pmace.ptycho import *
+from utils.utils import *
+from ptycho import *
 
 
 '''

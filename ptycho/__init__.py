@@ -1,1 +1,1 @@
-__all__ = ["pmace", "pie", "sharp", "wf"]
+__all__ = ["pmace", "pmace2", "pie", "sharp", "wf"]

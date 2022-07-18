@@ -5,7 +5,7 @@ data:
 recon:
   joint_recon: False                                             # False
   window_coords: [112, 912, 112, 912]
-  num_iter: 100
+  num_iter: 2
   out_dir: output/
 
 

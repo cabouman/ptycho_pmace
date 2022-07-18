@@ -2,8 +2,8 @@ import sys, os
 from pathlib import Path
 root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
 sys.path.append(str(root_dir))
-from ptycho_pmace.utils.utils import *
-from ptycho_pmace.ptycho import *
+from utils.utils import *
+from ptycho import *
 import datetime as dt
 from shutil import copyfile
 import argparse, yaml
@@ -92,29 +92,29 @@ def main():
         # Generate formulated initial guess for reconstruction
         init_obj = gen_init_obj(diffraction_data, projection_coords, obj_ref=obj_ref, probe_ref=probe_ref)
 
-        # ePIE recon
-        epie_dir = save_dir + 'probe_spacing_{}/ePIE/obj_step_sz_{}/'.format(d, epie_pm[idx])
-        epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
-                                     obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=epie_pm[idx],
-                                     joint_recon=joint_recon, cstr_win=display_win, save_dir=epie_dir)
-
-        # AWF recon
-        awf_dir = save_dir + 'probe_spacing_{}/AWF/'.format(d)
-        awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
-                                 accel=True, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=awf_dir)
-
-        # SHARP recon
-        sharp_dir = save_dir + 'probe_spacing_{}/SHARP/relax_pm_{}/'.format(d, sharp_pm[idx])
-        sharp_result = sharp.sharp_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
-                                         num_iter=num_iter, relax_pm=sharp_pm[idx], joint_recon=joint_recon,
-                                         cstr_win=display_win, save_dir=sharp_dir)
-
-        # SHARP+ recon
-        sharp_plus_dir = save_dir + 'probe_spacing_{}/SHARP_plus/relax_pm_{}/'.format(d, sharp_plus_pm[idx])
-        sharp_plus_result = sharp.sharp_plus_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref,
-                                                   probe_ref=probe_ref, num_iter=num_iter, relax_pm=sharp_plus_pm[idx],
-                                                   joint_recon=joint_recon, cstr_win=display_win, save_dir=sharp_plus_dir)
-
+        # # ePIE recon
+        # epie_dir = save_dir + 'probe_spacing_{}/ePIE/obj_step_sz_{}/'.format(d, epie_pm[idx])
+        # epie_result = pie.epie_recon(diffraction_data, projection_coords, init_obj=init_obj,
+        #                              obj_ref=obj_ref, probe_ref=probe_ref, num_iter=num_iter, obj_step_sz=epie_pm[idx],
+        #                              joint_recon=joint_recon, cstr_win=display_win, save_dir=epie_dir)
+        #
+        # # AWF recon
+        # awf_dir = save_dir + 'probe_spacing_{}/AWF/'.format(d)
+        # awf_result = wf.wf_recon(diffraction_data, projection_coords, init_obj=init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+        #                          accel=True, num_iter=num_iter, joint_recon=joint_recon, cstr_win=display_win, save_dir=awf_dir)
+        #
+        # # SHARP recon
+        # sharp_dir = save_dir + 'probe_spacing_{}/SHARP/relax_pm_{}/'.format(d, sharp_pm[idx])
+        # sharp_result = sharp.sharp_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref, probe_ref=probe_ref,
+        #                                  num_iter=num_iter, relax_pm=sharp_pm[idx], joint_recon=joint_recon,
+        #                                  cstr_win=display_win, save_dir=sharp_dir)
+        #
+        # # SHARP+ recon
+        # sharp_plus_dir = save_dir + 'probe_spacing_{}/SHARP_plus/relax_pm_{}/'.format(d, sharp_plus_pm[idx])
+        # sharp_plus_result = sharp.sharp_plus_recon(diffraction_data, projection_coords, init_obj, obj_ref=obj_ref,
+        #                                            probe_ref=probe_ref, num_iter=num_iter, relax_pm=sharp_plus_pm[idx],
+        #                                            joint_recon=joint_recon, cstr_win=display_win, save_dir=sharp_plus_dir)
+        #
 
         # PMACE recon
         pmace_dir = save_dir + 'probe_spacing_{}/PMACE/alpha_{}/'.format(d, pmace_pm[idx])
@@ -133,10 +133,10 @@ def main():
         num_iter = np.asarray(np.arange(num_iter+1))
         init_err = compute_nrmse(init_obj * display_win, obj_ref * display_win, display_win)
         plt.figure(num=None, figsize=(10, 6), dpi=400, facecolor='w', edgecolor='k')
-        plt.semilogy(num_iter, np.insert(epie_result['obj_err'], 0, init_err), 'C5', label=r'ePIE')
-        plt.semilogy(num_iter, np.insert(awf_result, 0, init_err), 'C4', label=r'AWF')
-        plt.semilogy(num_iter, np.insert(sharp_result, 0, init_err), 'C3', label=r'SHARP')
-        plt.semilogy(num_iter, np.insert(sharp_plus_result, 0, init_err), 'C2', label=r'SHARP+')
+        # plt.semilogy(num_iter, np.insert(epie_result['obj_err'], 0, init_err), 'C5', label=r'ePIE')
+        # plt.semilogy(num_iter, np.insert(awf_result, 0, init_err), 'C4', label=r'AWF')
+        # plt.semilogy(num_iter, np.insert(sharp_result, 0, init_err), 'C3', label=r'SHARP')
+        # plt.semilogy(num_iter, np.insert(sharp_plus_result, 0, init_err), 'C2', label=r'SHARP+')
         plt.semilogy(num_iter, np.insert(pmace_result, 0, init_err), 'C1', label=r'PMACE')
         plt.semilogy(num_iter, np.insert(reg_pmace_result, 0, init_err), 'C0', label=r'reg-PMACE')
         plt.ylabel('NRMSE (in log scale) ')

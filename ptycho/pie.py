@@ -1,5 +1,5 @@
-from ptycho_pmace.utils.utils import *
-from ptycho_pmace.utils.nrmse import *
+from utils.utils import *
+from utils.nrmse import *
 import random
 
 

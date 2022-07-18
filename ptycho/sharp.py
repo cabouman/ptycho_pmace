@@ -1,4 +1,4 @@
-from ptycho_pmace.utils.utils import *
+from utils.utils import *
 
 
 def fourier_projector(frame_data, diffr_data):

@@ -5,7 +5,7 @@ data:
 recon:
   joint_recon: False
   window_coords: [112, 912, 112, 912]
-  num_iter: 100
+  num_iter: 30
   display: False
   out_dir: output/experiment/synthetic_case/
 ePIE:
@@ -22,7 +22,7 @@ SHARP_plus:
   relax_pm: 0.8
   out_dir: SHARP_plus/
 PMACE:
-  alpha: 0.3
+  alpha: 0.2
   rho: 0.5
   probe_exponent: 1.5
   out_dir: PMACE/
