@@ -3,52 +3,48 @@ import matplotlib.pyplot as plt
 
 
 def plot_scan_pt(scan_pt):
+    """ 
+    Function to plot scan points.
+    Args:
+        scan_pt: scan points.
+    """
     plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
     plt.title('scan points')
     plt.imshow()
     plt.clf()
 
 
-def plot_diffr_data(diffr, fig_sz=[12, 8]):
+def plot_diffr_data(y_meas):
     """
-    The function to plot diffraction pattern in original scale and dbscales.
-    :param diffr: diffraction pattern.
-    :param fig_sz: size of figure.
-    :return: visualization of diffraction pattern.
+    Function to plot diffraction pattern in original scale and dbscales.
+    Args:
+        y_meas: one diffraction pattern.
     """
-    plt.figure(num=None, figsize=(fig_sz[0], fig_sz[1]), dpi=400, facecolor='w', edgecolor='k')
-    plt.subplot(221)
-    plt.imshow(diffr, cmap='gray')
-    plt.title('phaseless data (diffraction pattern)')
+    plt.subplot(211)
+    plt.imshow(y_meas, cmap='gray')
+    plt.title('diffraction data')
     plt.axis('off')
     plt.colorbar()
 
-    plt.subplot(222)
-    diffr_dbscale = 10 * np.log10(diffr + 1e-16)
-    plt.imshow(diffr_dbscale, cmap='gray', vmin=0)
-    plt.title('diffraction pattern in decibel')
+    plt.subplot(212)
+    meas_dbscale = 10 * np.log10(y_meas + 1e-16)
+    plt.imshow(meas_dbscale, cmap='gray', vmin=0)
+    plt.title('data in decibel')
     plt.axis('off')
     plt.colorbar()
 
-    sqrt_diffr = np.sqrt(np.asarray(diffr))
-    plt.subplot(223)
-    plt.imshow(sqrt_diffr, cmap='gray')
-    plt.title('sqrt of diffraction pattern')
-    plt.axis('off')
-    plt.colorbar()
-
-    plt.subplot(224)
-    sqrt_diffr_db = 10 * np.log10(sqrt_diffr + 1e-16)
-    plt.imshow(sqrt_diffr_db, cmap='gray', vmin=0)
-    plt.title('sqrt of diffraction pattern in decibel')
-    plt.axis('off')
-    plt.colorbar()
     plt.show()
     plt.clf()
 
 
 def plot_nrmse(nrmse_ls, title, label, abscissa=None, step_sz=15, fig_sz=[10, 4.8], display=False, save_fname=None):
-    """ Plot the nrmse vs number of iterations"""
+    """
+    Function to plot the nrmse versus number of iterations.
+    Args:
+        nrmse_ls: nrmse lists.
+        title: corresponding title for each nrmse list.
+        label: axis labels.
+    """
     xlabel, ylabel = label[0], label[1]
     plt.figure(num=None, figsize=(fig_sz[0], fig_sz[1]), dpi=100, facecolor='w', edgecolor='k')
     if np.all(abscissa == None):
@@ -75,16 +71,9 @@ def plot_nrmse(nrmse_ls, title, label, abscissa=None, step_sz=15, fig_sz=[10, 4.
             plt.show()
         plt.clf()
     else:
-        # fig, ax = plt.subplots()
-        # prop_cycle = plt.rcParams['axes.prop_cycle']
-        # colors = prop_cycle.by_key()['color']
         if isinstance(nrmse_ls, dict):
             idx = 0
-            # legend = []
-            xmin = 1
-            xmax = 0
-            ymax = 0
-            ymin = 1
+            xmin, xmax, ymin, ymax = 1, 0, 1, 0
             for line_label, line in nrmse_ls.items():
                 xmin = np.minimum(xmin, np.amin(np.asarray(abscissa[idx])))
                 xmax = np.maximum(xmax, np.amax(np.asarray(abscissa[idx])))
@@ -114,24 +103,23 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
                    real_vmax=1, real_vmin=0, imag_vmax=0, imag_vmin=-1):
     """
     Function to plot the complex object images and error images compared with reference image.
-    :param cmplx_img: complex image.
-    :param img_title: title of complex image.
-    :param ref_img: reference image.
-    :param display_win: pre-defined window for showing images.
-    :param display: option to show images.
-    :param save_fname: save images to designated file directory.
-    :param fig_sz: size of image plots.
-    :param mag_vmax: max value for showing image magnitude.
-    :param mag_vmin: min value for showing image magnitude.
-    :param phase_vmax: max value for showing image phase.
-    :param phase_vmin: max value for showing image phase.
-    :param real_vmax: max value for showing real part of image.
-    :param real_vmin: max value for showing real part of image
-    :param imag_vmax: max value for showing imaginary part of image
-    :param imag_vmin: max value for showing imaginary magnitude.
-    :return:
+    Args:
+        cmplx_img: complex image.
+        img_title: title of complex image.
+        ref_img: reference image.
+        display_win: pre-defined window for showing images.
+        display: option to show images.
+        save_fname: save images to designated file directory.
+        fig_sz: size of image plots.
+        mag_vmax: max value for showing image magnitude.
+        mag_vmin: min value for showing image magnitude.
+        phase_vmax: max value for showing image phase.
+        phase_vmin: max value for showing image phase.
+        real_vmax: max value for showing real part of image.
+        real_vmin: max value for showing real part of image
+        imag_vmax: max value for showing imaginary part of image
+        imag_vmin: max value for showing imaginary magnitude.
     """
-
     # plot error images if reference image is provided
     show_err_img = False if (ref_img is None) or (np.linalg.norm(cmplx_img - ref_img) < 1e-9) else True
 
