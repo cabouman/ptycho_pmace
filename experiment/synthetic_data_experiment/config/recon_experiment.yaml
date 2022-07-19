@@ -16,20 +16,16 @@ WF:
 AWF:
   out_dir: AWF/
 SHARP:
-  relax_pm: 0.6
+  relax_prm: 0.6
   out_dir: SHARP/
 SHARP_plus:
-  relax_pm: 0.8
+  relax_prm: 0.8
   out_dir: SHARP_plus/
 PMACE:
-  alpha: 0.3
-  rho: 0.5
-  probe_exponent: 1.5
+  data_fit_prm: 0.7
   out_dir: PMACE/
 reg-PMACE:
-  alpha: 0.3
-  rho: 0.5
-  probe_exponent: 1.5
+  data_fit_prm: 0.7
   bm3d_psd: 0.02
   out_dir: reg-PMACE/
 
