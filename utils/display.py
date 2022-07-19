@@ -2,6 +2,13 @@ from .nrmse import *
 import matplotlib.pyplot as plt
 
 
+def plot_scan_pt(scan_pt):
+    plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
+    plt.title('scan points')
+    plt.imshow()
+    plt.clf()
+
+
 def plot_diffr_data(diffr, fig_sz=[12, 8]):
     """
     The function to plot diffraction pattern in original scale and dbscales.
