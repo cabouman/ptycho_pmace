@@ -1,7 +1,7 @@
 data:
   obj_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_image.tiff
   probe_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_probe.tiff
-  num_agts: 1444
+  num_meas: 1444
   probe_spacing: 20
   max_scan_loc_offset: 5
   add_noise: True
