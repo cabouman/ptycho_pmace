@@ -17,8 +17,8 @@ This file reconstructs complex transmittance image by processing the synthetic d
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic image reconstruction.')
     parser.add_argument('config_dir', type=str, help='Path to config file.', 
-                        nargs='?', const='config/recon_experiment.yaml', 
-                        default='config/recon_experiment.yaml')
+                        nargs='?', const='config/recon_syn_data.yaml', 
+                        default='config/recon_syn_data.yaml')
     return parser
 
 
