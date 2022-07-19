@@ -71,7 +71,7 @@ def main():
     ref_probe = load_img(probe_dir)
 
     # Load intensity only measurements(data) from file and pre-process the data
-    y_meas = load_measurement(data_dir + 'frame_data/', display=display)
+    y_meas = load_measurement(data_dir + 'frame_data/')
 
     # Load scan points
     scan_loc_file = pd.read_csv(data_dir + 'Translations.tsv.txt', sep=None, engine='python', header=0)

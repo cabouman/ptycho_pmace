@@ -55,8 +55,7 @@ def main():
     y_meas = np.zeros((num_meas, probe.shape[0], probe.shape[1]), dtype=np.float64)
 
     # generate scan positions
-    scan_loc = gen_scan_loc(obj, probe, num_meas, probe_spacing, 
-                            randomization=True, max_offset=max_scan_loc_offset, display=display)
+    scan_loc = gen_scan_loc(obj, probe, num_meas, probe_spacing, randomization=True, max_offset=max_scan_loc_offset)
     df = pd.DataFrame({'FCx': scan_loc[:, 0], 'FCy': scan_loc[:, 1]})
     df.to_csv(data_dir + 'Translations.tsv.txt')
 
@@ -64,9 +63,8 @@ def main():
     scan_coords = get_proj_coords_from_data(scan_loc, y_meas)
 
     # generate noisy diffraction patterns
-    noisy_data = gen_syn_data(obj, probe, scan_coords, num_meas, 
-                              add_noise=True, photon_rate=photon_rate, shot_noise_pm=shot_noise_rate,
-                              display=display, save_dir=data_dir+'frame_data/')
+    noisy_data = gen_syn_data(obj, probe, scan_coords, add_noise=True, photon_rate=photon_rate, 
+                              shot_noise_pm=shot_noise_rate, save_dir=data_dir+'frame_data/')
 
     # save config file to output directory
     if not os.path.exists(data_dir):

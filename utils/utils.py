@@ -1,6 +1,6 @@
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
-import sys, os, pyfftw, torch, re, scico
+import sys, os, pyfftw, torch, re
 import scico.linop.optics as op
 from .display import *
 from .nrmse import *
@@ -13,8 +13,10 @@ from scipy import signal
 def int2float(arg):
     """
     Convert int argument to floating numbers.
-    :param arg: int argument.
-    :return: floating numbers.
+    Args:
+        arg: int argument.
+    Returns:
+        floating numbers.
     """
     output = arg.astype(np.float64) if isinstance(arg, int) else arg
 
@@ -24,10 +26,12 @@ def int2float(arg):
 def float2cmplx(arg):
     """
     Convert float argument to complex.
-    :param arg: float argument.
-    :return: complex
+    Args:
+        arg: float argument.
+    Returns:
+        complex numbers.
     """
-    output = arg.astype(np.complex128) if isinstance(arg, float) else arg
+    output = arg.astype(np.complex64) if isinstance(arg, float) else arg
 
     return output
 
@@ -35,8 +39,10 @@ def float2cmplx(arg):
 def load_img(img_dir):
     """
     Read image from file path.
-    :param img_dir: path of the file.
-    :return: complex image array
+    Args:
+        img_dir: directory of the image.
+    Returns:
+        complex image array.
     """
     # read tiff image
     image = tiff.imread(img_dir)
@@ -46,102 +52,62 @@ def load_img(img_dir):
     return cmplx_img
 
 
-def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offset=5, display=False, save_dir=None):
+def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offset=5):
     """
-    Function to generate the locations for scanning object.
-    :param obj: complex sample image to be illuminated.
-    :param probe: complex probe function.
-    :param num_pt: number of scan points.
-    :param probe_spacing: probe spacing between neighboring scan positions.
-    :param randomization: add random offsets to generated scan points.
-    :param display: option to display the scan pattern.
-    :param save_dir: save generated scan points to given directory.
-    :return: scan points for projections.
+    Function to generate scan locations.
+    Args:
+        obj: complex sample image to be scanned.
+        probe: complex probe.
+        num_pts: number of scan points.
+        probe_spacing: probe spacing between neighboring scan positions.
+        randomization: option to add random offsets to each scan point.
+        max_offset: maximum offsets to be added to scan points along each dimension.
+    Returns:
+        generated scan points.
     """
-    # check directories for saving files
-    if save_dir is None:
-        save_data = False
-        save_fname = None
-    else:
-        save_data = True
-        save_fname = save_dir + 'scan_pattern'
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
     # initialization
-    x, y = np.shape(obj)
-    m, n = np.shape(probe)
-    x_num = int(np.sqrt(num_pt))
-    y_num = int(np.sqrt(num_pt))
-    # generate scan point in raster order
-    scan_pt = [((i - x_num / 2 + 1 / 2) * probe_spacing + x / 2, (j - y_num / 2 + 1 / 2) * probe_spacing + y / 2)
-               for j in range(x_num)
-               for i in range(y_num)]
+    x, y = obj.shape
+    m, n = probe.shape
+    num_pt_x, num_pt_y = int(np.sqrt(num_pt)), int(np.sqrt(num_pt))
 
-    # generate random offset for each scan point
+    # generate scan point in raster order
+    scan_pt = [((i - num_pt_x / 2 + 1 / 2) * probe_spacing + x / 2, (j - num_pt_y / 2 + 1 / 2) * probe_spacing + y / 2)
+               for j in range(num_pt_x)
+               for i in range(num_pt_y)]
+
+    # add random offsets to each scan point
     if randomization:
         offset = np.random.uniform(low=-max_offset, high=(max_offset + 1), size=(num_pt, 2))
-    else:
-        offset = np.zeros((num_pt, 2), dtype=int)
-    randomized_scan_pt = np.asarray(scan_pt + offset)
+        scan_pt = np.asarray(scan_pt + offset)
 
-    if ((int(np.amin(randomized_scan_pt) - m / 2) < 0) or (int(np.amax(randomized_scan_pt) + n / 2 ) >= np.max([x, y]))):
-        print('Exceeds the Boundary! Please extend the image or reduce probe spacing. ')
+    if ((int(np.amin(scan_pt) - m / 2) < 0) or (int(np.amax(scan_pt) + n / 2 ) >= np.max([x, y]))):
+        print('Warning: Scanning beyond valid region! Please extend image or reduce probe spacing. ')
 
-    if display:
-        figure(num=None, figsize=(9, 4), dpi=60, facecolor='w', edgecolor='k')
-        plt.subplot(121)
-        plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
-        plt.title('scan points (d = {} px)'.format(probe_spacing))
-        plt.axis([0, x, y, 0])
-        plt.subplot(122)
-        plt.plot(randomized_scan_pt[:, 0], randomized_scan_pt[:, 1], 'o-')
-        plt.title('randomized points (max offset = {} px)'.format(max_offset))
-        plt.axis([0, x, y, 0])
-        plt.show()
-        plt.clf()
-
-    if save_data:
-        df = pd.DataFrame({'FCx': randomized_scan_pt[:, 0], 'FCy': randomized_scan_pt[:, 1]})
-        df.to_csv(save_dir + 'Translations.tsv.txt')
-        figure(num=None, figsize=(9, 4), dpi=60, facecolor='w', edgecolor='k')
-        plt.subplot(121)
-        plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
-        plt.title('scan points (d = {} px)'.format(probe_spacing))
-        plt.axis([0, x, y, 0])
-        plt.subplot(122)
-        plt.plot(randomized_scan_pt[:, 0], randomized_scan_pt[:, 1], 'o-')
-        plt.title('randomized points (max offset = {} px)'.format(max_offset))
-        plt.axis([0, x, y, 0])
-        plt.savefig('{}.png'.format(save_fname))
-        plt.clf()
-
-    return randomized_scan_pt
+    return scan_pt
 
 
-def gen_syn_data(obj, probe, scan_coords, num_agts, add_noise=True, photon_rate=1e5, shot_noise_pm=0.5, fft_threads=1,
-                 display=False, save_dir=None):
+
+def gen_syn_data(obj, probe, patch_bounds, add_noise=True, photon_rate=1e5, shot_noise_pm=0.5, save_dir=None):
     """
     Function to simulate the ptychographic intensity measurements (diffraction pattern in far-field plane).
-    :param obj: complex sample image.
-    :param probe: complex probe function.
-    :param scan_coords: coordinates of projections.
-    :param num_agts: number of scan points.
-    :param add_noise: option to add Poisson distributed noise including detector response and dark current noise.
-    :param photon_rate: detector photon detection rate.
-    :param shot_noise_pm: rate parameter of Poisson distributed dark current noise.
-    :param fft_threads: number of threads for FFT.
-    :param display: option to display the simulated diffraction pattern.
-    :param save_dir: save generated diffraction patterns to given directory.
-    :return: simulated intensity data.
+    Args:
+        obj: complex object.
+        probe: complex probe.
+        patch_bounds: scan coordinates of projections.
+        add_noise: option to add noise to data.
+        photon_rate: rate of photon detection at detector.
+        shot_noise_pm: expected number of Poisson distributed dark current noise.
+        save_dir: directory for saving generated diffraction patterns.
+    Returns:
+        simualted ptychographic data.
     """
     # initialization
     m, n = probe.shape
+    num_pts = len(patch_bounds)
     # extract patches x_j from full-sized object
-    projected_patch = img2patch(obj, scan_coords, (num_agts, m, n))
+    projected_patches = img2patch(obj, patch_bounds, (num_pts, m, n))
     # take 2D DFT and generate noiseless measurements
-    noiseless_data = np.abs(compute_ft(probe * projected_patch, threads=1)) ** 2
-
+    noiseless_data = np.abs(compute_ft(probe * projected_patches)) ** 2
     # introduce photon noise
     if add_noise:
         # get peak signal value
@@ -149,9 +115,9 @@ def gen_syn_data(obj, probe, scan_coords, num_agts, add_noise=True, photon_rate=
         # calculate expected photon rate given peak signal value and peak photon rate
         expected_photon_rate = noiseless_data * photon_rate / peak_signal_val
         # poisson random values realization
-        diffr_in_photon_ct = np.random.poisson(expected_photon_rate, (num_agts, m, n))
+        meas_in_photon_ct = np.random.poisson(expected_photon_rate, (num_pts, m, n))
         # add dark current noise
-        noisy_data = diffr_in_photon_ct + np.random.poisson(lam=shot_noise_pm, size=(num_agts, m, n))
+        noisy_data = meas_in_photon_ct + np.random.poisson(lam=shot_noise_pm, size=(num_pts, m, n))
         # return the numbers
         output = np.asarray(noisy_data, dtype=int)
     else:
@@ -162,59 +128,19 @@ def gen_syn_data(obj, probe, scan_coords, num_agts, add_noise=True, photon_rate=
     if save_dir is not None:
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        for j in range(num_agts):
+        for j in range(num_pts):
             tiff.imwrite(save_dir + 'frame_data_{}.tiff'.format(j), output[j])
-
-    # plot the simulated diffraction patterns
-    if display:
-        if add_noise:
-            figure(num=None, figsize=(15, 10), dpi=100, facecolor='w', edgecolor='k')
-            plt.subplot(221)
-            plt.imshow(diffr_in_photon_ct[0] - expected_photon_rate[0], cmap='gray')
-            plt.title('photon/detector noise')
-            plt.axis('off')
-            plt.colorbar()
-            plt.subplot(222)
-            plt.imshow(np.random.poisson(lam=shot_noise_pm, size=(m, n)), cmap='gray')
-            plt.title('short/dark current noise')
-            plt.axis('off')
-            plt.colorbar()
-            plt.subplot(223)
-            plt.imshow(output[0], cmap='gray')
-            plt.title('simulated noisy data')
-            plt.colorbar()
-            plt.axis('off')
-            diffr_dbscale = 10 * np.log10(output + 1e-16)
-            plt.subplot(224)
-            plt.imshow(diffr_dbscale[0], cmap='gray', vmin=0)
-            plt.title('simulated data (in decibel)')
-            plt.axis('off')
-            plt.colorbar()
-            plt.show()
-        else:
-            figure(num=None, figsize=(15, 5), dpi=100, facecolor='w', edgecolor='k')
-            plt.subplot(121)
-            plt.imshow(output[0], cmap='gray')
-            plt.title('simulated noiseless data')
-            plt.colorbar()
-            plt.axis('off')
-            diffr_dbscale = 10 * np.log10(output + 1e-16)
-            plt.subplot(122)
-            plt.imshow(diffr_dbscale[0], cmap='gray', vmin=0)
-            plt.title('simulated data (in decibel)')
-            plt.axis('off')
-            plt.colorbar()
-            plt.show()
 
     return output
 
 
-def load_measurement(fpath, display=False):
+def load_measurement(fpath):
     """
-    Function to read measurements from local path.
-    :param fpath: data directory.
-    :param display: option to display the data.
-    :return: pre-processed measurements (square root of the recorded diffraction pattern).
+    Function to read measurements from path and pre-process data.
+    Args:
+        fpath: file directory.
+    Returns:
+        pre-processed measurement (square root of non-negative data).
     """
     # specify the order of measurement
     def key_func(fname):
@@ -222,130 +148,101 @@ def load_measurement(fpath, display=False):
         output = int(non_digits.sub("", fname))
         return output
 
-    # read the measurements
+    # read the measurements and remove negative values
     meas_ls = []
     for fname in sorted(os.listdir(fpath), key=key_func):
-        intensity_data = tiff.imread(os.path.join(fpath, fname))
-        intensity_data[intensity_data < 0] = 0
-        meas_ls.append(intensity_data)
+        y_meas = tiff.imread(os.path.join(fpath, fname))
+        y_meas[y_meas < 0] = 0
+        meas_ls.append(y_meas)
     meas_ls = int2float(meas_ls)
-    if display:
-        figure(num=None, figsize=(15, 5), dpi=100, facecolor='w', edgecolor='k')
-        plt.subplot(121)
-        plt.imshow(meas_ls[0], cmap='gray')
-        plt.title('measurement')
-        plt.colorbar()
-        plt.axis('off')
-        meas_dbscale = 10 * np.log10(np.asarray(meas_ls) + 1e-16)
-        plt.subplot(122)
-        plt.imshow(meas_dbscale[0], cmap='gray', vmin=0)
-        plt.title('measurement (in decibel)')
-        plt.axis('off')
-        plt.colorbar()
-        plt.show()
+    
     # take square root of non-negative diffraction data
     output = np.sqrt(np.asarray(meas_ls))
 
     return output
 
 
-def gen_init_obj(dp, coords, obj_ref=None, probe_ref=None, gauss_kernel_std=10, display=False):
+def gen_init_obj(y_meas, coords, img_sz, ref_probe=None, lpf_sigma=10):
     """
     Function to formulate initial guess of complex object for reconstruction.
-    :param dp: intensity-only measurements (recorded diffraction patterns).
-    :param coords: coordinates of projections.
-    :param obj_ref: ground truth complex object or reference images.
-    :param probe_ref: known or estimated complex probe function.
-    :param gauss_kernel_std: standard deviation of Gaussian kernel for low-pass filtering the initialized guess.
-    :param display: option to display the initial guess of complex image.
-    :return: formulated initial guess of complex transmittance of complex object.
+    Args:
+        y_meas: pre-processed diffraction patterns.
+        coords: coordinates of projections.
+        img_sz: size of full complex image.
+        ref_probe: known or estimated complex probe function.
+        lpf_sigma: standard deviation of Gaussian kernel for low-pass filtering the initialized guess.
+    Returns:
+        formulated initial guess of complex transmittance image.
     """
-    patch_est = [[np.sqrt(np.linalg.norm(dp[j]) / np.linalg.norm(probe_ref))] * np.ones_like(probe_ref)
-                 for j in range(len(dp))]
-    norm = patch2img(np.ones_like(dp), coords, img_sz=obj_ref.shape)
-    obj_est = patch2img(patch_est, coords, img_sz=obj_ref.shape, norm=norm)
-    obj_est[obj_est == 0] = np.median(obj_est)
+    if ref_probe is None:
+        ref_probe = np.ones_like(y_meas[0]).astype(np.complex64)
+
+    patch_rms = [[np.sqrt(np.linalg.norm(y_meas[j]) / np.linalg.norm(ref_probe))] * np.ones_like(ref_probe)
+                 for j in range(len(y_meas))]
+    img_wgt = patch2img(np.ones_like(y_meas), coords, img_sz=img_sz)
+    init_obj = patch2img(patch_rms, coords, img_sz=img_sz, norm=img_wgt)
+    init_obj[init_obj == 0] = np.median(init_obj)
     # apply LPF to remove high frequencies
-    output = gaussian_filter(np.abs(obj_est), sigma=gauss_kernel_std).astype(np.complex128)
-    if display:
-        figure(num=None, figsize=(6.8, 2.4), dpi=100, facecolor='w', edgecolor='k')
-        plt.subplot(121)
-        plt.imshow(np.abs(output), cmap='gray')
-        plt.colorbar()
-        plt.axis('off')
-        plt.title('amplitude of init guess')
-        plt.subplot(122)
-        plt.imshow(np.angle(output), cmap='gray', vmax=np.pi, vmin=-np.pi)
-        plt.colorbar()
-        plt.axis('off')
-        plt.title('phase of init guess (gauss_kernel_std = {})'.format(gauss_kernel_std))
-        plt.show()
-        plt.clf()
+    output = gaussian_filter(np.abs(init_obj), sigma=lpf_sigma)
 
-    return output
+    return output.astype(np.complex64)
 
 
-def gen_init_probe(dp, coords, obj_ref=None, sampling_interval=None,
-                   source_wl=0.140891, propagation_dist=4e2, gauss_kernel_std=2, display=False):
+def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_interval=None,
+                   source_wl=0.140891, propagation_dist=4e2, lpf_sigma=2):
     """
     Function to formulate initial guess of complex probe for joint reconstruction on ptychographic data.
-    :param dp: phaseless measurements (diffraction patterns).
-    :param coords: coordinates of projections.
-    :param obj_ref: ground truth complex object or reference images.
-    :param sampling_interval: sampling interval at source plane.
-    :param source_wl: illumination wavelength.
-    :param propagation_dist:propagation distance.
-    :param gauss_kernel_std: standard deviation of Guassian kernel for removing high frequencies.
-    :param display: option to display the initial guess.
-    :return: initialized complex probe.
+    Args:
+        y_meas: pre-processed diffraction patterns.
+        coords: coordinates of projections.
+        ref_obj: ground truth complex object or reference images.
+        fres_propagation: option to fresnel propagate initialized probe.
+        sampling_interval: sampling interval at source plane.
+        source_wl: illumination wavelength.
+        propagation_dist:propagation distance.
+        lpf_sigma: standard deviation of Guassian kernel for removing high frequencies.
+    Returns:
+        formualted initial guess of complex probe.
     """
     if sampling_interval is None:
         sampling_interval = 2 * source_wl
     # formulate init probe
-    temp = np.zeros(dp.shape, dtype=np.complex128)
-    patch = img2patch(obj_ref, coords, dp.shape)
-    for i in range(len(dp)):
-        temp[i] = compute_ift(dp[i]) / patch[i]
-    probe_guess = np.average(temp, 0)
-    num_agts, m, n = dp.shape
-    fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=2 * np.pi / source_wl, z=propagation_dist)
-    # fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1, jit=True)
-    output = fres_op(probe_guess)
-    output = gaussian_filter(np.real(output), sigma=gauss_kernel_std) + 1j * gaussian_filter(np.imag(output), sigma=gauss_kernel_std)
-    if display:
-        figure(num=None, figsize=(6.8, 2.4), dpi=100, facecolor='w', edgecolor='k')
-        plt.subplot(121)
-        plt.imshow(np.abs(output), cmap='gray')
-        plt.colorbar()
-        plt.axis('off')
-        plt.title('amplitude of init probe')
-        plt.subplot(122)
-        plt.imshow(np.angle(output), cmap='gray', vmax=np.pi, vmin=-np.pi)
-        plt.colorbar()
-        plt.axis('off')
-        plt.title('phase of init probe')
-        plt.show()
-        plt.clf()
+    patch = img2patch(ref_obj, coords, y_meas.shape)
+    tmp = [compute_ift(y_meas[j]) / patch[j] for j in range(len(y_meas))]
+    init_probe = np.average(tmp, axis=0)
+    if fres_propagation:
+        m, n = init_probe.shape
+        fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=2 * np.pi / source_wl, z=propagation_dist)
+    	# fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1, jit=True)
+        output = fres_op(init_probe)
+    else:
+        output = init_probe
+    # apply LPF to remove high frequencies
+    output = gaussian_filter(np.real(output), sigma=lpf_sigma) + 1j * gaussian_filter(np.imag(output), sigma=lpf_sigma)
 
-    return output
+    return output.astype(np.complex64)
 
 
 def patch2img(img_patch, coords, img_sz, norm=None):
     """
     Function to project image patch back to full-sized image with weights.
-    :param img_patch: projected image patches.
-    :param coords: coordinates of projections.
-    :param img_sz: size of image.
-    :param norm: weights for back projection.
-    :return: full-sized complex image.
+    Args:
+        img_patch: projected image patches.
+        coords: coordinates of projections.
+        img_sz: size of full image.
+        norm: normalization weight.
+    Returns:
+        full-sized complex image.
     """
     # initialization
     if norm is None:
-        norm = np.ones(img_sz, dtype=np.complex128)
-    img = np.zeros(img_sz, dtype=np.complex128)
+        norm = np.ones(img_sz, dtype=np.complex64)
+    img = np.zeros(img_sz, dtype=np.complex64)
+
     # back projection
     for j in range(len(img_patch)):
         img[coords[j, 0]:coords[j, 1], coords[j, 2]:coords[j, 3]] += img_patch[j]
+
     # normalization
     output = divide_cmplx_numbers(img, norm)
 
@@ -355,14 +252,18 @@ def patch2img(img_patch, coords, img_sz, norm=None):
 def img2patch(img, coords, patch_sz):
     """
     Function to extract image patches from full-sized image.
-    :param img: the full-sized image.
-    :param coords: coordinates of projections.
-    :param patch_sz: size of each patch.
-    :return: projected image patches.
+    Args:
+        img: full-sized image.
+        coords: coordinates of projections.
+        patch_sz: size of output patches.
+    Returns:
+        projected image patches.
     """
-    num_agts, m, n = patch_sz
-    output = np.zeros(patch_sz, dtype=np.complex128)
-    for j in range(num_agts):
+    # initialization
+    output = np.zeros(patch_sz, dtype=np.complex64)
+
+    # take projections
+    for j in range(len(patch_sz)):
         output[j, :, :] = img[coords[j, 0]:coords[j, 1], coords[j, 2]:coords[j, 3]]
 
     return output
@@ -371,49 +272,57 @@ def img2patch(img, coords, patch_sz):
 def compute_ft(input_array, threads=None):
     """
     Function to take 2D DFT of input using pyfftw.
-    :param input_array: input (image).
-    :param threads: number of threads for performing DFT using pyfftw..
-    :return: 2D DFT of input (spectrum).
+    Args:
+        input_array: input.
+        threads: number of threads for performing DFT using pyfftw.
+    Returns:
+        result of 2D DFT.
     """
     if threads is None:
         threads = mp.cpu_count()
+    # DFT    
     a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     b = np.zeros_like(a)
     fft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_FORWARD', threads=threads)
     output = np.fft.ifftshift(fft_object(), axes=(-2, -1))
 
-    return output
+    return output.astype(np.complex64)
 
 
 def compute_ift(input_array, threads=None):
     """
     Function to take 2D inverse DFT of input using pyfftw.
-    :param input_array: input (spectrum).
-    :param threads: number of threads for performing IDFT using pyfftw.
-    :return: IFT of input (image).
+    Args:
+        input: input.
+        threads: number of threads for performing IDFT using pyfftw.
+    Returns:
+        results of 2D inverse DFT.
     """
     if threads is None:
         threads = mp.cpu_count()
+    # IDFT
     a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     b = np.zeros_like(a)
     ifft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_BACKWARD', threads=threads)
     output = np.fft.ifftshift(ifft_object(), axes=(-2, -1))
 
-    return output
+    return output.astype(np.complex64)
 
 
-def scale(input, out_range):
+def scale(input_obj, out_range):
     """
-    This function scales input x into the given range.
-    :param input: object.
-    :param out_range: given range.
-    :return: the scaled object.
+    This function scales input  into the given range.
+    Args:
+        input_obj: object to be scaled.
+        out_range: scale range.
+    Returns:
+        scaled input.
     """
-    in_range = np.amin(input), np.amax(input)
+    in_range = np.amin(input_obj), np.amax(input_obj)
     if (in_range[1] - in_range[0]) == 0:
-        return input
+        return input_obj
     else:
-        y = (input - (in_range[1] + in_range[0]) / 2) / (in_range[1] - in_range[0])
+        y = (input_obj - (in_range[1] + in_range[0]) / 2) / (in_range[1] - in_range[0])
         output = y * (out_range[1] - out_range[0]) + (out_range[1] + out_range[0]) / 2
 
     return output
@@ -421,94 +330,112 @@ def scale(input, out_range):
 
 def divide_cmplx_numbers(cmplx_num, cmplx_denom):
     """
-    Avoid error when dividing with complex numbers.
-    :param cmplx_num: complex numerator.
-    :param cmplx_denom: complex denominator.
-    :return: result.
+    Take division regarding complex numbers.
+    Args:
+        cmplx_num: complex numerator.
+        cmplx_denom: complex denominator.
+    Returns:
+        result.
     """
     output = cmplx_num * np.conj(cmplx_denom) / (np.abs(cmplx_denom) ** 2 + 1e-15)
 
     return output
 
 
-def save_tiff(input, save_dir):
+def save_tiff(cmplx_img, save_dir):
     """
     Function to save complex image to given path.
-    :param input: complex image.
-    :param save_dir: provided directory.
-    :return: N/A.
+    Args:
+        input: complex image.
+        save_dir: save .tiff image to specific directory.
     """
-    # save recon results
-    img = np.asarray(input)
-    cmplx_img_array = [np.real(img), np.imag(img), np.abs(img), np.angle(img)]
-    tiff.imwrite(save_dir, np.asarray(cmplx_img_array))
+    # check file path
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+        # save recon results
+        img = np.asarray(cmplx_img)
+        img_array = [np.real(img), np.imag(img), np.abs(img), np.angle(img)]
+        tiff.imwrite(save_dir, np.asarray(img_array))
+    else:
+        print('The directory does not exist!')
 
 
 def save_array(arr, save_dir):
     """
     Function to save array or list to given directory.
-    :param arr: numpy array or list.
-    :param save_dir: provided directory.
-    :return: N/A.
+    Args:
+        arr: numpy array or list.
+        save_dir: directory for saving array.
     """
-    f0 = open(save_dir, "wb")
-    np.save(f0, arr)
-    f0.close
+    f = open(save_dir, "wb")
+    np.save(f, arr)
+    f.close
 
 
-def get_proj_coords_from_data(scan_loc, diffraction_data):
+def get_proj_coords_from_data(scan_loc, y_meas):
     """
     Function to obtain projection coordinates from scan points.
-    :param scan_loc: scan points.
-    :param diffraction_data: recorded diffraction patterns.
-    :return: projection coordinates.
+    Args:
+        scan_loc: scan points.
+        y_meas: diffraction patterns.
+    Returns:
+        scan coordinates.
     """
-    num_agts, m, n = diffraction_data.shape
+    num_pts, m, n = y_meas.shape
     rounded_scan_loc = np.round(scan_loc)
-    projection_coords = np.zeros((num_agts, 4), dtype=int)
+    projection_coords = np.zeros((num_pts, 4), dtype=int)
     projection_coords[:, 0], projection_coords[:, 1] = rounded_scan_loc[:, 1] - m / 2, rounded_scan_loc[:, 1] + m / 2
     projection_coords[:, 2], projection_coords[:, 3] = rounded_scan_loc[:, 0] - n / 2, rounded_scan_loc[:, 0] + n / 2
 
     return projection_coords
 
 
-def gen_tukey_2D_window(init_window, alpha=0.5):
+def gen_tukey_2D_window(init_win, shape_param=0.5):
     """
     Funtion to generate a 2D Tukey window.
-    :param init_window: init of output window.
-    :param alpha: shape parameter of the Tukey window.
-    :return: 2D Tukey window with the maximum value normalized to 1
+    Args:
+        init_window: initialized output window.
+        shape_param: shape parameter.
+    Returns:
+        2D Tukey window with maximum value 1.
     """
     # initialization
-    output = np.zeros(init_window.shape)
-    window_width = np.amin(init_window.shape)
-    tukey_1d = signal.tukey(window_width, alpha)
-    tukey_1d_half_window = tukey_1d[int(len(tukey_1d)/2)-1:]
-    x_coords = np.linspace(-window_width/2, window_width/2, window_width)
-    y_coords = np.linspace(-window_width/2, window_width/2, window_width)
+    output = np.zeros_like(init_win)
+    win_width = np.amin(init_win.shape)
+
+    # generate 1D Tukey window
+    tukey_1d_win = signal.tukey(win_width, shape_param)
+    tukey_1d_win_half = tukey_1d_win[int(len(tukey_1d_win) / 2) - 1:]
+    x_coords = np.linspace(-win_width/2, win_width/2, win_width)
+    y_coords = np.linspace(-win_width/2, win_width/2, win_width)
     # generate 2D Tukey window from 1D Tukey window
-    for x_idx in range(0, window_width):
-        for y_idx in range(0, window_width):
+    for x_idx in range(0, win_width):
+        for y_idx in range(0, win_width):
             dist = int(np.sqrt(x_coords[x_idx]**2 + y_coords[y_idx]**2))
-            if dist <= window_width/2:
-                output[x_idx, y_idx] = tukey_1d_half_window[dist]
+            if dist <= win_width/2:
+                output[x_idx, y_idx] = tukey_1d_win_half[dist]
 
     return output
 
 
-def drop_line(df, scan_pts):
+def drop_line(y_meas, scan_pts):
     """
     Function to reduce scan points and measurements by skipping lines with negative slope.
-    :param df: phase-less measurements (diffraction patterns).
-    :param scan_pts: scan points.
-    :return: reduced diffraction patterns and scan points.
+    Args:
+        y_meas: diffraction patterns.
+        scan_pts: scan points.
+    Returns:
+        reduced scan points and corresponding diffraction patterns.
     """
-    def slope_between_point(x, y):
+    # slope between two points
+    def slope_between_pts(x, y):
         output = 0 if x[0] < y[0] else -1
         return output
-    point_idx = np.arange(len(scan_pts))
+
+    # drop line with negative slopes
+    pt_idx = np.arange(len(scan_pts))
     for idx in range(1, len(scan_pts)):
-        slope = slope_between_point(scan_pts[idx - 1], scan_pts[idx])
+        slope = slope_between_pts(scan_pts[idx - 1], scan_pts[idx])
         if slope < 0:
-            point_idx = np.delete(point_idx, np.where(point_idx == idx))
-    return df[np.sort(point_idx)], scan_pts[np.sort(point_idx)]
+            pt_idx = np.delete(pt_idx, np.where(pt_idx == idx))
+    return y_meas[np.sort(pt_idx)], scan_pts[np.sort(pt_idx)]
