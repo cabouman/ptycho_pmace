@@ -14,11 +14,11 @@ SHARP:
 SHARP_plus:
   relax_pm: 0.75
 PMACE:
-  alpha: 1
+  alpha: 0.5
   rho: 0.5
   probe_exponent: 1.5
 reg-PMACE:
-  alpha: 1
+  alpha: 0.5
   rho: 0.5
   probe_exponent: 1.5
   bm3d_psd: 0.01

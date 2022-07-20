@@ -8,8 +8,8 @@ ePIE:
   obj_step_sz: 0.1
   probe_step_sz: 0.1
 PMACE:
-  obj_alpha: 1
-  probe_alpha: 1
+  obj_alpha: 0.3
+  probe_alpha: 0.3
 output:
   out_dir: output/experiment/real_case/GoldBall_full_recon_result/
 
