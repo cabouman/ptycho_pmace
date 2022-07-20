@@ -60,9 +60,10 @@ class PMACE:
         self.dbar_probe_wgt = np.sum(self.dbar_probe_arr_wgt, 0)
 
         # TODO: confirm the region for applying denoiser
-        non_zero_idx = np.nonzero(self.recon_win)
-        crd0, crd1 = np.max([0, np.amin(non_zero_idx[0])]), np.min([np.amax(non_zeros_idx[0])+1, self.img_shape[0]])
-        crd2, crd3 = np.max([0, np.amin(non_zero_idx[1])]), np.min([np.amax(non_zeros_idx[1])+1, self.img_shape[1]])
+        denoising_blk = self.patch2img(np.ones_like(self.y_meas))
+        non_zero_idx = np.nonzero(np.abs(denoising_blk))
+        crd0, crd1 = np.max([0, np.amin(non_zero_idx[0])]), np.min([np.amax(non_zero_idx[0])+1, self.img_shape[0]])
+        crd2, crd3 = np.max([0, np.amin(non_zero_idx[1])]), np.min([np.amax(non_zero_idx[1])+1, self.img_shape[1]])
         self.blk_idx = [crd0, crd1, crd2, crd3]
         
         self.obj_nrmse = []
@@ -120,7 +121,7 @@ class PMACE:
         for j in range(len(patches)):
             output_image[coords[j, 0]:coords[j, 1], coords[j, 2]:coords[j, 3]] += patches[j]
 
-        return output_image.astype(dtype_cmplx)
+        return output_image.astype(self.dtype_cmplx)
 
     def xbar(self, patches, normalize=True):
         """
@@ -170,7 +171,7 @@ class PMACE:
         inv_f = compute_ift( self.y_meas * np.exp(1j * np.angle(f)) )
         
         # take weighted average of current estimate and projected data-fitting point
-        output = (1 - data_fit_param) * cur_est + data_fit_param * divide_cmplx_numbers(freq_ift, joint_est)
+        output = (1 - data_fit_param) * cur_est + data_fit_param * divide_cmplx_numbers(inv_f, joint_est)
 
         return output.astype(self.dtype_cmplx)
 
@@ -219,7 +220,7 @@ class PMACE:
         # initialization
         approach = 'reg-PMACE' if use_reg else 'PMACE'
         updated_patches = self.cur_patches
-        updated_probe = self.cur_probe
+        new_probe = self.cur_probe
 
         # reconstruction
         start_time = time.time()
@@ -232,7 +233,7 @@ class PMACE:
             # v <- v + 2 \rho (z - w)
             updated_patches = updated_patches + 2 * rho * (new_patches - cur_patches)
             # obtain current estimate of complex image
-            output_image = new_image if use_reg else self.xbar(updated_patches)
+            est_image = new_image if use_reg else self.xbar(updated_patches)
 
             # joint reconstruction
             if joint_recon:
@@ -248,7 +249,7 @@ class PMACE:
                 # v <- v + 2 \rho (z - w)
                 updated_probe = updated_probe + 2 * rho * (new_probe - cur_probe)
                 # obtain current estimate of complex probe
-                output_probe = self.dbar(self.pmace_probe, new_patches, self.image_exp)
+                est_probe = self.dbar(self.pmace_probe, new_patches, self.image_exp)
 
                 # update patch weight and image weight
                 self.xbar_patch_wgt = np.abs([output_probe] * len(self.y_meas), dtype=self.dtype_real) ** self.probe_exp
@@ -272,22 +273,24 @@ class PMACE:
                     self.probe_nrmse.append(cur_probe_nrmse)
                 else:
                     est_probe_adj = est_probe
+            else:
+                est_probe_adj = None
             
             if (i+1) % 10 == 0:
-                print('Finished {:d} of {:d} iterations.'.format(i+1, self.num_iter))
+                print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
 
         # calculate time consumption
         print('Time consumption:', time.time() - start_time)
 
         # save recon results
         if self.save_dir is not None:
-            save_tiff(est_image, save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
+            save_tiff(est_image, self.save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
             if self.obj_nrmse:
-                save_array(self.obj_nrmse, save_dir  + 'obj_nrmse_' + str(self.obj_nrmse[-1]))
-            if self.joint_recon:
-                save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
+                save_array(self.obj_nrmse, self.save_dir  + 'obj_nrmse_' + str(self.obj_nrmse[-1]))
+            if joint_recon:
+                save_tiff(est_probe, self.save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
                 if self.probe_nrmse:
-                    save_array(self.probe_nrmse, save_dir + 'probe_nrmse_' + str(self.probe_nrmse[-1]))
+                    save_array(self.probe_nrmse, self.save_dir + 'probe_nrmse_' + str(self.probe_nrmse[-1]))
 
         # return recon results
         keys = ['object', 'err_obj', 'probe', 'err_probe']
