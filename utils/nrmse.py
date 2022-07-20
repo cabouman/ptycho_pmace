@@ -35,7 +35,7 @@ def pha_err(img, ref_img):
     Returns:
         phase error between complex images.
     """
-    ang_diff = np.angle(gt) - np.angle(img)
+    ang_diff = np.angle(ref_img) - np.angle(img)
     ang_diff[ang_diff > pi] -= pi
     ang_diff[ang_diff < -pi] += pi
     pha_err = np.minimum(ang_diff, ang_diff + 2*pi)
