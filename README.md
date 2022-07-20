@@ -1,7 +1,7 @@
 # Projected Multi-Agent Consensus Equilibrium (PMACE) for Ptychographic Image Reconstruction
 
 ## Overview
-This python package implements PMACE and other competing algorithms including WF, AWF, and SHARP for solving ptychographic 
+This python package implements PMACE approach for solving ptychographic 
 reconstruction problem. 
 
 ## Requirements
