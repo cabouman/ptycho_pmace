@@ -3,29 +3,10 @@ data:
   probe_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_probe.tiff
   data_dir: data/synthetic_noisy_data/probe_spacing_68/photon_rate_10000.0/
   window_coords: [112, 912, 112, 912]
-  display: False
 recon:
   num_iter: 100
-ePIE:
-  step_sz: 1
-  out_dir: ePIE/
-WF:
-  out_dir: WF/
-AWF:
-  out_dir: AWF/
-SHARP:
-  relax_pm: 0.6
-  out_dir: SHARP/
-SHARP_plus:
-  relax_pm: 0.8
-  out_dir: SHARP_plus/
-PMACE:
-  alpha: 0.7
-  out_dir: PMACE/
-reg-PMACE:
-  alpha: 0.7
-  bm3d_psd: 0.02
-  out_dir: reg-PMACE/
-output:
-  out_dir: output/demo_pmace_output/
+  joint_recon: False
+  out_dir: output/demo_pmace_result/
+  data_fit_param: 0.7
+  denoising_param: 0.02
 
