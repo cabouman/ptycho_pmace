@@ -349,15 +349,10 @@ def save_tiff(cmplx_img, save_dir):
         input: complex image.
         save_dir: save .tiff image to specific directory.
     """
-    # check file path
-    if save_dir is not None:
-        os.makedirs(save_dir, exist_ok=True)
-        # save recon results
-        img = np.asarray(cmplx_img)
-        img_array = [np.real(img), np.imag(img), np.abs(img), np.angle(img)]
-        tiff.imwrite(save_dir, np.asarray(img_array))
-    else:
-        print('The directory does not exist!')
+    # save recon results
+    img = np.asarray(cmplx_img)
+    img_array = [np.real(img), np.imag(img), np.abs(img), np.angle(img)]
+    tiff.imwrite(save_dir, np.asarray(img_array))
 
 
 def save_array(arr, save_dir):
