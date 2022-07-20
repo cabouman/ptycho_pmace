@@ -16,7 +16,7 @@ def compute_nrmse(img, ref_img, cstr=None):
     """
     # assign region for calculating error
     img_adj = img if (cstr is None) else cstr * img
-    ref_img_adj = ref_img (if cstr is None) else cstr * ref_img
+    ref_img_adj = ref_img if (cstr is None) else cstr * ref_img
 
     # compute MSE
     num_px = float(np.sum(cstr.astype(float))) if (cstr is not None) else float(img.shape[0] * img.shape[1])
