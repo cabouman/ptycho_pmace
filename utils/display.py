@@ -166,7 +166,7 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
         plt.colorbar()
         plt.axis('off')
         # phase difference between complex reconstruction and ground truth image
-        ang_err = pha_err(ref_img_rgn, cmplx_img_rgn)
+        ang_err = pha_err(cmplx_img_rgn, ref_img_rgn)
         plt.subplot(2, 4, 6)
         plt.imshow(ang_err, cmap='gray', vmax=np.pi/2, vmin=-np.pi/2)
         plt.colorbar()
