@@ -7,10 +7,6 @@ from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComple
 import random
 
 
-def cast(value, num_type):
-    return num_type(value) if value is not None else None
-
-
 class PMACE:
     def __init__(self, y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None, 
                  recon_win=None, save_dir=None, probe_exp=1.5, image_exp=0.5):
@@ -32,23 +28,23 @@ class PMACE:
         self.dtype_cmplx = np.complex64
         self.dtype_real = np.float64
 
-        self.y_meas = cast(y_meas, self.dtype_real)
+        self.y_meas = self.cast(y_meas, self.dtype_real)
         self.patch_bounds = patch_bounds
         self.recon_win = np.ones_like(init_obj) if recon_win is None else recon_win
         self.save_dir = self.check_fpath(save_dir)
         
-        self.ref_obj = cast(ref_obj, self.dtype_cmplx)       # ref_obj
-        self.ref_probe = cast(ref_probe, self.dtype_cmplx)   # ref_probe
+        self.ref_obj = self.cast(ref_obj, self.dtype_cmplx)       # ref_obj
+        self.ref_probe = self.cast(ref_probe, self.dtype_cmplx)   # ref_probe
    
-        self.cur_image = cast(init_obj, self.dtype_cmplx)    # obj_est
+        self.cur_image = self.cast(init_obj, self.dtype_cmplx)    # obj_est
         self.img_shape = self.cur_image.shape
         self.cur_patches = self.img2patch(self.cur_image)    # obj_mat
         self.patch_shape = self.y_meas.shape
-        self.cur_probe = cast(init_probe, self.dtype_cmplx) if init_probe is not None else self.ref_probe  # probe_est
+        self.cur_probe = self.cast(init_probe, self.dtype_cmplx) if init_probe is not None else self.ref_probe  # probe_est
         self.cur_probe_mat = [self.cur_probe] * len(self.y_meas)
         
-        self.probe_exp = cast(probe_exp, self.dtype_real)
-        self.image_exp = cast(image_exp, self.dtype_real)
+        self.probe_exp = self.cast(probe_exp, self.dtype_real)
+        self.image_exp = self.cast(image_exp, self.dtype_real)
         
         # spatially-varying weights in consensus calculations
         self.xbar_patch_wgt = np.abs(self.cur_probe_mat, dtype=self.dtype_real) ** self.probe_exp
@@ -68,6 +64,12 @@ class PMACE:
         
         self.obj_nrmse = []
         self.probe_nrmse = []
+
+    def cast(self, value, num_type):
+        """
+        Chnage current data type to target data type.
+        """
+        return num_type(value) if value is not None else None
 
     def reset(self):
         """
