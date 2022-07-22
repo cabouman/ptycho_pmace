@@ -210,7 +210,7 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
             # obtain estimate of complex probe
             tmp_n = np.average(img2patch(np.conj(est_obj), patch_bounds, y_meas.shape) * est_frm, axis=0)
             tmp_d = np.average(img2patch(np.abs(est_obj) ** 2, patch_bounds, y_meas.shape), axis=0)
-            est_probe = np.divide(tmp_n, tmp_d, where=(tmp_d!=0)
+            est_probe = np.divide(tmp_n, tmp_d, where=(tmp_d!=0))
             # update image weights
             img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
 
