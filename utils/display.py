@@ -10,7 +10,7 @@ def plot_scan_pt(scan_pt):
     """
     plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
     plt.title('scan points')
-    plt.imshow()
+    plt.show()
     plt.clf()
 
 
