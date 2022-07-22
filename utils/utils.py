@@ -337,7 +337,10 @@ def divide_cmplx_numbers(cmplx_num, cmplx_denom):
     Returns:
         result.
     """
-    output = cmplx_num * np.conj(cmplx_denom) / (np.abs(cmplx_denom) ** 2 + 1e-15)
+    tol = np.amax([1e-3, np.amax(np.abs(cmplx_denom)) * 1e-6])
+    cmplx_denom[np.abs(cmplx_denom) < tol] = tol
+    output = cmplx_num / cmplx_denom
+    #output = cmplx_num * np.conj(cmplx_denom) / (np.abs(cmplx_denom) ** 2 + 1e-15)
 
     return output
 
