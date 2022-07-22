@@ -8,5 +8,7 @@ recon:
   joint_recon: False
   out_dir: output/demo_pmace_result/
   data_fit_param: 0.7
+  rho: 0.5
+  probe_exp: 1.5
   denoising_param: 0.02
 

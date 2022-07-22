@@ -65,38 +65,40 @@ def main():
     else:
         recon_win = None
 
-    # use class named PMACE to create object
-    pmace_obj = PMACE(y_meas, patch_crds, init_obj, init_probe=None, 
-                      ref_obj=ref_obj, ref_probe=ref_probe, recon_win=recon_win, save_dir=save_dir)
-    
     # reconstruction parameters
     num_iter = config['recon']['num_iter']
     joint_recon = config['recon']['joint_recon']
     alpha = config['recon']['data_fit_param']
+    rho = config['recon']['rho']
+    probe_exp = config['recon']['probe_exp']
     sigma = config['recon']['denoising_param']
-    fig_args = dict(ref_img=ref_obj, display_win=recon_win, save_dir=save_dir)
+    fig_args = dict(display_win=recon_win, save_dir=save_dir)
 
+    # use class named PMACE to create object
+    pmace_obj = PMACE(y_meas, patch_crds, 
+                      init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
+                      recon_win=recon_win, save_dir=save_dir, probe_exp=probe_exp)
+    
     # PMACE recon
     pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
-                                   obj_data_fit_param=alpha, use_reg=False)
+                                   obj_data_fit_param=alpha, rho=rho, use_reg=False)
     plot_synthetic_img(pmace_result['object'], img_title='PMACE', **fig_args)
     
     # reg-PMACE recon
     pmace_obj.reset()
     reg_pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
-                                       obj_data_fit_param=alpha, use_reg=True, sigma=sigma)
+                                       obj_data_fit_param=alpha, rho=rho, use_reg=True, sigma=sigma)
     plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', **fig_args)
     
 
-def plot_synthetic_img(cmplx_img, img_title, ref_img=None, display_win=None, display=False, save_dir=None):
+def plot_synthetic_img(cmplx_img, img_title, display_win=None, save_dir=None):
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
     save_fname = None if (save_dir is None) else save_dir + '{}_recon_cmplx_img'.format(img_title)
 
     # plot complex image
-    plot_cmplx_img(cmplx_img, img_title=img_title, ref_img=ref_img, 
-                   display_win=display_win, display=display, save_fname=save_fname,
-                   fig_sz=[8, 3], mag_vmax=1, mag_vmin=0.5, phase_vmax=0, phase_vmin=-np.pi/4,
+    plot_cmplx_img(cmplx_img, img_title=img_title, display_win=display_win, save_fname=save_fname,
+                   mag_vmax=1, mag_vmin=0.5, phase_vmax=0, phase_vmin=-np.pi/4,
                    real_vmax=1.1, real_vmin=0.8, imag_vmax=0, imag_vmin=-0.6)
 
 
