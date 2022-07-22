@@ -254,7 +254,7 @@ class PMACE:
                 est_probe = self.dbar(self.pmace_probe, new_patches, self.image_exp)
 
                 # update patch weight and image weight
-                self.xbar_patch_wgt = np.abs([output_probe] * len(self.y_meas), dtype=self.dtype_real) ** self.probe_exp
+                self.xbar_patch_wgt = np.abs([new_probe] * len(self.y_meas), dtype=self.dtype_real) ** self.probe_exp
                 self.xbar_image_wgt = self.patch2img(self.xbar_patch_wgt)
                 pmace_tol = np.amax([1e-3, np.amax(np.abs(self.xbar_image_wgt)) * 1e-6])
                 self.xbar_image_wgt[np.abs(self.xbar_image_wgt) < pmace_tol] = pmace_tol
