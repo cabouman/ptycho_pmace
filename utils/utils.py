@@ -263,7 +263,7 @@ def img2patch(img, coords, patch_sz):
     output = np.zeros(patch_sz, dtype=np.complex64)
 
     # take projections
-    for j in range(len(patch_sz)):
+    for j in range(len(output)):
         output[j, :, :] = img[coords[j, 0]:coords[j, 1], coords[j, 2]:coords[j, 3]]
 
     return output
