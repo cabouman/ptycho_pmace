@@ -15,7 +15,7 @@ This file demonstrates reconstruction of complex transmittance image using PMACE
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic image reconstruction using PMACE.')
     parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', const='demo_pmace.yaml',
-                        default='configs/demo_pmace.yaml')
+                        default=os.path.join(root_dir, 'configs/demo_pmace.yaml'))
     return parser
 
 
@@ -23,7 +23,7 @@ def main():
     # load config file and pass arguments
     parser = build_parser()
     args = parser.parse_args()
-
+    print("Passing arguments ...")
     with open(args.config_dir, 'r') as f:
         config = yaml.safe_load(f)
 
@@ -34,13 +34,14 @@ def main():
     save_dir = os.path.join(root_dir, config['recon']['out_dir'])
 
     # check directory
+    print("Creating output directory '%s' ..." % save_dir)
     try:
         os.makedirs(save_dir, exist_ok=True)
-        print("Output directory '%s' created successfully" % save_dir)
     except OSError as error:
-        print("Output directory '%s' can not be created" % save_dir)
+        print("Output directory can not be created")
 
     # load reference images from file
+    print("Loading data ...")
     ref_obj = load_img(obj_dir)
     ref_probe = load_img(probe_dir)
 
@@ -84,11 +85,11 @@ def main():
                                    obj_data_fit_param=alpha, rho=rho, use_reg=False)
     plot_synthetic_img(pmace_result['object'], img_title='PMACE', **fig_args)
     
-    # reg-PMACE recon
-    pmace_obj.reset()
-    reg_pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
-                                       obj_data_fit_param=alpha, rho=rho, use_reg=True, sigma=sigma)
-    plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', **fig_args)
+    ## reg-PMACE recon
+    #pmace_obj.reset()
+    #reg_pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
+    #                                   obj_data_fit_param=alpha, rho=rho, use_reg=True, sigma=sigma)
+    #plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', **fig_args)
     
 
 def plot_synthetic_img(cmplx_img, img_title, display_win=None, save_dir=None):
