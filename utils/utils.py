@@ -244,7 +244,7 @@ def patch2img(img_patch, coords, img_sz, norm=None):
         img[coords[j, 0]:coords[j, 1], coords[j, 2]:coords[j, 3]] += img_patch[j]
 
     # normalization
-    output = divide_cmplx_numbers(img, norm)
+    output = divide_cmplx_numbers(img, norm, tol=1e-3)
 
     return output
 
@@ -328,19 +328,19 @@ def scale(input_obj, out_range):
     return output
 
 
-def divide_cmplx_numbers(cmplx_num, cmplx_denom):
+def divide_cmplx_numbers(cmplx_num, cmplx_denom, tol=1e-15):
     """
     Take division regarding complex numbers.
     Args:
         cmplx_num: complex numerator.
         cmplx_denom: complex denominator.
+        tol: set tolerance on denominator.
     Returns:
         result.
     """
-    tol = np.amax([1e-3, np.amax(np.abs(cmplx_denom)) * 1e-6])
+    tol = np.amax([tol, np.amax(np.abs(cmplx_denom)) * 1e-6])
     cmplx_denom[np.abs(cmplx_denom) < tol] = tol
     output = cmplx_num / cmplx_denom
-    #output = cmplx_num * np.conj(cmplx_denom) / (np.abs(cmplx_denom) ** 2 + 1e-15)
 
     return output
 
