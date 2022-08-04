@@ -59,7 +59,7 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
 def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
-                rho=0.5, probe_exp=1.5, obj_exp=0.5, add_reg=True, sigma=0.1):
+                rho=0.5, probe_exp=1.5, obj_exp=0.5, add_reg=False, sigma=0.02):
     """
     Function to perform PMACE reconstruction on ptychographic data.
     Args:
@@ -171,10 +171,12 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     # save recon results
     if save_dir is not None:
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
-        save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if nrmse_obj:
+            save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
         if joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-            save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
+            if nrmse_probe:
+                save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
     keys = ['object', 'probe', 'err_obj', 'err_probe']

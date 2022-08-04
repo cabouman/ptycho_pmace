@@ -137,10 +137,12 @@ def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_
     # save recon results
     if save_dir is not None:
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
-        save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if nrmse_obj:
+            save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
         if joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-            save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
+            if nrmse_probe:
+                save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
     keys = ['object', 'probe', 'err_obj', 'err_probe']
@@ -148,4 +150,3 @@ def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_
     output = dict(zip(keys, vals))
 
     return output
-

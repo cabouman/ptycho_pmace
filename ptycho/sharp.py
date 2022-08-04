@@ -135,10 +135,12 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     # save recon results
     if save_dir is not None:
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
-        save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if nrmse_obj:
+            save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
         if joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-            save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
+            if nrmse_probe:
+                save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
     keys = ['object', 'probe', 'err_obj', 'err_probe']
@@ -214,9 +216,6 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
             # update image weights
             img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
 
-        # # dynamic strategy for updating beta
-        # beta = beta + (1 - beta) * (1 - np.exp(-(i/7)**3))
- 
         # phase normalization and scale image to minimize the intensity difference
         if ref_obj is not None:
             revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
@@ -240,10 +239,12 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
     # save recon results
     if save_dir is not None:
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
-        save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if nrmse_obj:
+            save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
         if joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
-            save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
+            if nrmse_probe:
+                save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
     keys = ['object', 'probe', 'err_obj', 'err_probe']
