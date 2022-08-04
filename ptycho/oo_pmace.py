@@ -38,7 +38,7 @@ class PMACE:
    
         self.cur_image = self.cast(init_obj, self.dtype_cmplx)    # obj_est
         self.img_shape = self.cur_image.shape
-        self.cur_patches = self.img2patch(self.cur_image)    # obj_mat
+        self.cur_patches = self.img2patch(self.cur_image)         # obj_mat
         self.patch_shape = self.y_meas.shape
         self.cur_probe = self.cast(init_probe, self.dtype_cmplx) if init_probe is not None else self.ref_probe  # probe_est
         self.cur_probe_mat = [self.cur_probe] * len(self.y_meas)
@@ -55,15 +55,15 @@ class PMACE:
         self.dbar_probe_arr_wgt = np.abs(self.cur_patches, dtype=self.dtype_real) ** self.image_exp
         self.dbar_probe_wgt = np.sum(self.dbar_probe_arr_wgt, 0)
 
-        # TODO: confirm the region for applying denoiser
-        denoising_blk = self.patch2img(np.ones_like(self.y_meas))
-        non_zero_idx = np.nonzero(np.abs(denoising_blk))
+        non_zero_idx = np.nonzero(np.abs(recon_win))
         crd0, crd1 = np.max([0, np.amin(non_zero_idx[0])]), np.min([np.amax(non_zero_idx[0])+1, self.img_shape[0]])
         crd2, crd3 = np.max([0, np.amin(non_zero_idx[1])]), np.min([np.amax(non_zero_idx[1])+1, self.img_shape[1]])
         self.blk_idx = [crd0, crd1, crd2, crd3]
         
         self.obj_nrmse = []
         self.probe_nrmse = []
+        self.images = []
+        self.images.append(self.cur_image[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
 
     def cast(self, value, num_type):
         """
@@ -266,7 +266,7 @@ class PMACE:
                 self.obj_nrmse.append(cur_obj_nrmse)
             else:
                 est_image_adj = est_image
-
+            
             # phase normalization and scale image to minimize the intensity difference
             if joint_recon:
                 if self.ref_probe is not None:
@@ -277,12 +277,18 @@ class PMACE:
                     est_probe_adj = est_probe
             else:
                 est_probe_adj = None
-            
+ 
+            # append reconstructed images
+            #self.images.append(est_image_adj[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
             if (i+1) % 10 == 0:
+                self.images.append(est_image_adj[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
                 print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
 
         # calculate time consumption
         print('Time consumption:', time.time() - start_time)
+
+        # create gif image
+        gen_gif(self.images, fps=2, save_dir=self.save_dir)
 
         # save recon results
         if self.save_dir is not None:
