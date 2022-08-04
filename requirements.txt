@@ -12,4 +12,4 @@ ray[tune]
 pandas
 hyperopt
 h5py
-
+imageio
