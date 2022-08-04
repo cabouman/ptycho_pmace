@@ -1,6 +1,6 @@
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
-import sys, os, pyfftw, torch, re
+import sys, os, pyfftw, torch, re, imageio
 import scico.linop.optics as op
 from .display import *
 from .nrmse import *
@@ -34,6 +34,26 @@ def float2cmplx(arg):
     output = arg.astype(np.complex64) if isinstance(arg, float) else arg
 
     return output
+
+
+def gen_gif(cmplx_images, fps=5, save_dir=None):
+    """
+    Generate .gif image for sequence of complex images.
+    Args:
+        cmplx_images: list of complex images.
+        fps: frame per sec. 
+        save_dir: output directory.
+    Returns:
+        .gif images for real and imaginary parts.
+    """
+    # convert real and imaginary parts to uint8
+    real_images = [scale(np.real(cmplx_img), [0, 1]).astype(np.float64) + 1e-16 for cmplx_img in cmplx_images]
+    imag_images = [scale(np.imag(cmplx_img), [0, 1]).astype(np.float64) + 1e-16 for cmplx_img in cmplx_images]
+    real_uint = np.asarray([255 * real_img / np.amax(real_img) for real_img in real_images]).astype(np.uint8)
+    imag_uint = np.asarray([255 * imag_img / np.amax(imag_img) for imag_img in imag_images]).astype(uint8)
+    # save to file
+    stack_img = [np.hstack((real_uint[idx], imag_uint[idx])) for idx in range(len(real_uint))]
+    imageio.mimsave(save_dir + 'real_imag_reconstruction.gif', stack_img, fps=fps)
 
 
 def load_img(img_dir):
