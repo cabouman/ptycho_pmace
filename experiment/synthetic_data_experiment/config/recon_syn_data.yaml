@@ -7,7 +7,7 @@ recon:
   window_coords: [112, 912, 112, 912]
   num_iter: 100
   display: False
-  out_dir: output/experiment/synthetic_case/
+  out_dir: output/experiment/synthetic_case/probe_spacing_68/
 ePIE:
   obj_step_sz: 1
   out_dir: ePIE/
@@ -24,9 +24,9 @@ SHARP_plus:
 PMACE:
   data_fit_prm: 0.7
   out_dir: PMACE/
-reg-PMACE:
-  data_fit_prm: 0.7
-  bm3d_psd: 0.02
-  out_dir: reg-PMACE/
+#reg-PMACE:
+#  data_fit_prm: 0.7
+#  bm3d_psd: 0.02
+#  out_dir: reg-PMACE/
 
 

@@ -126,13 +126,13 @@ def main():
                                      add_reg=False, save_dir=pmace_dir, **recon_args)
     plot_synthetic_img(pmace_result['object'], img_title='PMACE', save_dir=pmace_dir, **fig_args)
 
-    # reg-PMACE recon
-    alpha = config['reg-PMACE']['data_fit_prm']
-    sigma = config['reg-PMACE']['bm3d_psd']      
-    reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir'] + 'alpha_{}_sigma_{}/'.format(alpha, sigma)
-    reg_pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, 
-                                         add_reg=True, sigma=sigma, save_dir=reg_pmace_dir, **recon_args)
-    plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', save_dir=reg_pmace_dir, **fig_args)
+    ## reg-PMACE recon
+    #alpha = config['reg-PMACE']['data_fit_prm']
+    #sigma = config['reg-PMACE']['bm3d_psd']      
+    #reg_pmace_dir = save_dir + config['reg-PMACE']['out_dir'] + 'alpha_{}_sigma_{}/'.format(alpha, sigma)
+    #reg_pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, 
+    #                                     add_reg=True, sigma=sigma, save_dir=reg_pmace_dir, **recon_args)
+    #plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', save_dir=reg_pmace_dir, **fig_args)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
@@ -144,7 +144,7 @@ def main():
     line_label = 'nrmse'
     nrmse = {'ePIE': epie_result['err_obj'], 'AWF': awf_result['err_obj'],
              'SHARP': sharp_result['err_obj'], 'SHARP+': sharp_plus_result['err_obj'],
-             'PMACE': pmace_result['err_obj'], 'reg-PMACE': reg_pmace_result['err_obj']}
+             'PMACE': pmace_result['err_obj']}
     plot_nrmse(nrmse, title='Convergence plots of PMACE', label=[xlabel, ylabel, line_label],
                step_sz=10, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_plot')
 
