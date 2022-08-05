@@ -19,7 +19,7 @@ def compute_nrmse(img, ref_img, cstr=None):
     ref_img_adj = ref_img if (cstr is None) else cstr * ref_img
 
     # compute MSE
-    num_px = float(np.sum(cstr.astype(float))) if (cstr is not None) else float(img.shape[0] * img.shape[1])
+    num_px = float(np.sum(np.abs(cstr))) if (cstr is not None) else float(img.shape[0] * img.shape[1])
     rmse = np.sqrt(np.sum(np.abs(img - ref_img) ** 2) / num_px)
     output = rmse / np.sqrt(np.sum(np.abs(ref_img) ** 2) / num_px)
 
