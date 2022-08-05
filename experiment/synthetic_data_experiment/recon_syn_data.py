@@ -98,7 +98,7 @@ def main():
 
     # ePIE recon
     obj_step_sz = config['ePIE']['obj_step_sz']
-    epie_dir = save_dir + config['ePIE']['out_dir'] + 'obj_step_sz_{}/'.format(obj_step_sz)
+    epie_dir = save_dir + config['ePIE']['out_dir']
     epie_result = pie.epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
     plot_synthetic_img(epie_result['object'], img_title='ePIE', save_dir=epie_dir, **fig_args)
 
@@ -109,19 +109,19 @@ def main():
 
     # SHARP recon
     relax_prm = config['SHARP']['relax_prm']
-    sharp_dir = save_dir + config['SHARP']['out_dir'] + 'relax_pm_{}/'.format(relax_prm)
+    sharp_dir = save_dir + config['SHARP']['out_dir']
     sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_prm, save_dir=sharp_dir, **recon_args)
     plot_synthetic_img(sharp_result['object'], img_title='SHARP', save_dir=sharp_dir, **fig_args)
 
     # SHARP+ recon
     relax_prm = config['SHARP_plus']['relax_prm']
-    sharp_plus_dir = save_dir + config['SHARP_plus']['out_dir'] + 'relax_pm_{}/'.format(relax_prm)
+    sharp_plus_dir = save_dir + config['SHARP_plus']['out_dir']
     sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=relax_prm, save_dir=sharp_plus_dir, **recon_args)
     plot_synthetic_img(sharp_plus_result['object'], img_title='SHARP+', save_dir=sharp_plus_dir, **fig_args)
 
     # PMACE recon
     alpha = config['PMACE']['data_fit_prm']                   
-    pmace_dir = save_dir + config['PMACE']['out_dir'] + 'data_fit_prm_{}/'.format(alpha)
+    pmace_dir = save_dir + config['PMACE']['out_dir']
     pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, 
                                      add_reg=False, save_dir=pmace_dir, **recon_args)
     plot_synthetic_img(pmace_result['object'], img_title='PMACE', save_dir=pmace_dir, **fig_args)
