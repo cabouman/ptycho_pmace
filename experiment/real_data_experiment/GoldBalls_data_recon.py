@@ -24,12 +24,38 @@ def build_parser():
     return parser
 
 
-def plot_goldball_img(cmplx_img, img_title, display_win=None, display=False, save_dir=None):
+def plot_goldball_img(cmplx_img, display_win=None, display=False, save_dir=None):
     """ Function to plot reconstruction results in this experiment. """
-    save_fname = None if (save_dir is None) else save_dir + 'recon_cmplx_img'
-    plot_cmplx_img(cmplx_img, img_title=img_title, ref_img=None,
-                   display_win=display_win, display=display, save_fname=save_fname,
-                   fig_sz=[8, 3], mag_vmax=150, mag_vmin=0, real_vmax=130, real_vmin=20, imag_vmax=40, imag_vmin=-40)
+    # check directory
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+    # initialize window and determine area for showing and comparing images
+    if display_win is None:
+        display_win = np.ones_like(cmplx_img, dtype=np.complex64)
+    non_zero_idx = np.nonzero(display_win)
+    a, b = np.maximum(0, np.amin(non_zero_idx[0])), np.minimum(cmplx_img.shape[0], np.amax(non_zero_idx[0]) + 1)
+    c, d = np.maximum(0, np.amin(non_zero_idx[1])), np.minimum(cmplx_img.shape[1], np.amax(non_zero_idx[1]) + 1)
+    win_img = cmplx_img[a:b, c:d]
+    # phase normalization
+    norm_img = np.abs(win_img) * np.exp(1j * (np.angle(win_img) - np.mean(np.angle(win_img))))
+    # plot real part of complex image
+    real_plot = plt.imshow(np.real(norm_img), cmap='gray', vmax=140, vmin=70)
+    plt.colorbar()
+    plt.axis('off')
+    if save_dir is not None:
+        plt.savefig(save_dir + 'real_img', bbox_inches='tight', pad_inches=0, dpi=160)
+    if display:
+        plt.show()
+    plt.clf()
+    # plot imaginary part of complex image
+    imag_plot = plt.imshow(np.imag(norm_img), cmap='gray', vmax=60, vmin=-30)
+    plt.colorbar()
+    plt.axis('off')
+    if save_dir is not None:
+        plt.savefig(save_dir + 'imag_img', bbox_inches='tight', pad_inches=0, dpi=160)
+    if display:
+        plt.show()
+    plt.clf()
 
 
 def main():
@@ -102,27 +128,27 @@ def main():
     epie_dir = save_dir + 'ePIE/'
     epie_result = pie.epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
     # Plot reconstructed image
-    plot_goldball_img(epie_result['object'], img_title='ePIE', save_dir=epie_dir, **fig_args)
+    plot_goldball_img(epie_result['object'], save_dir=epie_dir, **fig_args)
 
     # Accelerated Wirtinger Flow (AWF) recon
     awf_dir = save_dir + 'AWF/'
     awf_result = wf.wf_recon(y_meas, patch_bounds, accel=True, save_dir=awf_dir, **recon_args)
     # Plot reconstructed image
-    plot_goldball_img(awf_result['object'], img_title='AWF', save_dir=awf_dir, **fig_args)
+    plot_goldball_img(awf_result['object'], save_dir=awf_dir, **fig_args)
 
     # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
     sharp_dir = save_dir + 'SHARP/'
     sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir,**recon_args)
     # Plot reconstructed image
-    plot_goldball_img(sharp_result['object'], img_title='SHARP', save_dir=sharp_dir, **fig_args)
+    plot_goldball_img(sharp_result['object'], save_dir=sharp_dir, **fig_args)
 
     # SHARP+ recon
     sharp_plus_pm = config['SHARP_plus']['relax_pm']
     sharp_plus_dir = save_dir + 'SHARP_plus/'
     sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
     # Plot reconstructed image
-    plot_goldball_img(sharp_plus_result['object'], img_title='SHARP+', save_dir=sharp_plus_dir, **fig_args)
+    plot_goldball_img(sharp_plus_result['object'], save_dir=sharp_plus_dir, **fig_args)
 
     # PMACE recon
     alpha = config['PMACE']['alpha']                
@@ -132,7 +158,7 @@ def main():
     pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, rho=rho, probe_exp=probe_exp, 
                                      add_reg=False, save_dir=pmace_dir, **recon_args)
     # Plot reconstructed image
-    plot_goldball_img(pmace_result['obj_revy'], img_title='PMACE', save_dir=pmace_dir, **fig_args)
+    plot_goldball_img(pmace_result['obj_revy'], save_dir=pmace_dir, **fig_args)
 
 
     # Save config file to output directory
