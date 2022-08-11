@@ -97,7 +97,7 @@ def main():
 
     # Load intensity only measurements(data) from file and pre-process the data
     y_meas = load_measurement(data_dir + 'processed_frame_data/')
-    tukey_win = gen_tukey_2D_window(np.zeros_like(y_meas[0]), alpha=0.5)
+    tukey_win = gen_tukey_2D_window(np.zeros_like(y_meas[0]))
     y_meas = y_meas * tukey_win
 
     # Load scan points
