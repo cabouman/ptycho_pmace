@@ -113,11 +113,11 @@ def main():
     sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_prm, save_dir=sharp_dir, **recon_args)
     plot_synthetic_img(sharp_result['object'], img_title='SHARP', save_dir=sharp_dir, **fig_args)
 
-    # SHARP+ recon
-    relax_prm = config['SHARP_plus']['relax_prm']
-    sharp_plus_dir = save_dir + config['SHARP_plus']['out_dir']
-    sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=relax_prm, save_dir=sharp_plus_dir, **recon_args)
-    plot_synthetic_img(sharp_plus_result['object'], img_title='SHARP+', save_dir=sharp_plus_dir, **fig_args)
+    # # SHARP+ recon
+    # relax_prm = config['SHARP_plus']['relax_prm']
+    # sharp_plus_dir = save_dir + config['SHARP_plus']['out_dir']
+    # sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=relax_prm, save_dir=sharp_plus_dir, **recon_args)
+    # plot_synthetic_img(sharp_plus_result['object'], img_title='SHARP+', save_dir=sharp_plus_dir, **fig_args)
 
     # PMACE recon
     alpha = config['PMACE']['data_fit_prm']                   
@@ -143,8 +143,7 @@ def main():
     xlabel, ylabel = 'Number of iteration', 'NRMSE value in log scale'
     line_label = 'nrmse'
     nrmse = {'ePIE': epie_result['err_obj'], 'AWF': awf_result['err_obj'],
-             'SHARP': sharp_result['err_obj'], 'SHARP+': sharp_plus_result['err_obj'],
-             'PMACE': pmace_result['err_obj']}
+             'SHARP': sharp_result['err_obj'], 'PMACE': pmace_result['err_obj']}
     plot_nrmse(nrmse, title='Convergence plots of PMACE', label=[xlabel, ylabel, line_label],
                step_sz=10, fig_sz=[8, 4.8], display=display, save_fname=save_dir + 'convergence_plot')
 

@@ -18,9 +18,9 @@ AWF:
 SHARP:
   relax_prm: 0.6
   out_dir: SHARP/
-SHARP_plus:
-  relax_prm: 0.8
-  out_dir: SHARP_plus/
+#SHARP_plus:
+#  relax_prm: 0.8
+#  out_dir: SHARP_plus/
 PMACE:
   data_fit_prm: 0.7
   out_dir: PMACE/
