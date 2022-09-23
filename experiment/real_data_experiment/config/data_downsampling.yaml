@@ -1,6 +1,9 @@
 data:
   display: False
-  data_dir: data/real_data/CuFoamData/
-  save_dir: data/real_data/CuFoamData_downsampling_factor_4/
+  stop_pt_left: 138
+  stop_pt_right: 610
+  data_dir: ../../data/real_data/CuFoamData/
+output:
+  save_dir: ../../data/real_data/CuFoamData_downsampling_factor_4/
 
 

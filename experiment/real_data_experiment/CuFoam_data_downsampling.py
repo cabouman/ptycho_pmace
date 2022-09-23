@@ -1,7 +1,3 @@
-import sys
-from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
 import argparse, yaml
 from utils.utils import *
 
@@ -13,8 +9,8 @@ This file downsamples CuFoam data by reducing scan points.
 
 def build_parser():
     parser = argparse.ArgumentParser(description='CuFoam data downsampling.')
-    parser.add_argument('config_dir', type=str, help='Configuration file.', nargs='?', const='data_downsampling.yaml',
-                        default='config/data_downsampling.yaml')
+    parser.add_argument('config_dir', type=str, help='Configuration file.', nargs='?',
+                        const='config/data_downsampling.yaml', default='config/data_downsampling.yaml')
     return parser
 
 
@@ -28,9 +24,10 @@ def main():
         config = yaml.safe_load(f)
 
     # Read data from config file
-    display = os.path.join(root_dir, config['data']['display'])
-    data_dir = os.path.join(root_dir, config['data']['data_dir'])
-    save_dir = os.path.join(root_dir, config['output']['save_dir'])
+    display = config['data']['display']
+    data_dir = config['data']['data_dir']
+    save_dir = config['output']['save_dir']
+
     # Create the directory
     os.makedirs(save_dir, exist_ok=True)
 
@@ -42,7 +39,7 @@ def main():
     scan_loc = scan_loc_file[['FCx', 'FCy']].to_numpy()
 
     # Reduce data via removing the points around turning corners
-    reduced_scan_loc = scan_loc[(scan_loc[:, 0] >= 138) & (scan_loc[:, 0] <= 610)]
+    reduced_scan_loc = scan_loc[(scan_loc[:, 0] >= config['data']['stop_pt_left']) & (scan_loc[:, 0] <= config['data']['stop_pt_right'])]
     meas_idx = []
     for idx in range(len(reduced_scan_loc)):
         curr_point = reduced_scan_loc[idx]
