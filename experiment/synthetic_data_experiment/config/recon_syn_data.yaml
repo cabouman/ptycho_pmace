@@ -1,13 +1,13 @@
 data:
-  obj_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_image.tiff
-  probe_dir: data/synthetic_noisy_data/ground_truth_img/SIM-generating_probe.tiff
-  data_dir: data/synthetic_noisy_data/probe_spacing_68/photon_rate_10000.0/
+  obj_dir: ../../data/synthetic_noisy_data/ground_truth_img/SIM-generating_image.tiff
+  probe_dir: ../../data/synthetic_noisy_data/ground_truth_img/SIM-generating_probe.tiff
+  data_dir: ../../data/synthetic_noisy_data/probe_spacing_68/photon_rate_10000.0/
 recon:
   joint_recon: False
   window_coords: [112, 912, 112, 912]
   num_iter: 100
   display: False
-  out_dir: output/experiment/synthetic_case/probe_spacing_68/
+  out_dir: ../../output/experiment/synthetic_case/probe_spacing_68/
 ePIE:
   obj_step_sz: 1
   out_dir: ePIE/
