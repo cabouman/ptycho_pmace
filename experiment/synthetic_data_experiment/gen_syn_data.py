@@ -1,7 +1,3 @@
-import sys, os
-from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
 from utils.utils import *
 from shutil import copyfile
 import argparse, yaml
@@ -15,7 +11,8 @@ This file demonstrates the simulation of noisy ptychograhic data.
 def build_parser():
     # arguments
     parser = argparse.ArgumentParser(description='Ptychographic Data Simulation')
-    parser.add_argument('config_dir', type=str, help='config_dir', nargs='?', const='config/gen_syn_data.yaml', default='config/gen_syn_data.yaml')
+    parser.add_argument('config_dir', type=str, help='config_dir', nargs='?', const='config/gen_syn_data.yaml',
+                        default='config/gen_syn_data.yaml')
     
     return parser
 
@@ -30,16 +27,15 @@ def main():
         config = yaml.safe_load(f)
     
     # pass arguments
-    obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
-    probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
+    obj_dir = config['data']['obj_dir']
+    probe_dir = config['data']['probe_dir']
     num_meas = config['data']['num_meas']
     probe_spacing = config['data']['probe_spacing']
     max_scan_loc_offset = config['data']['max_scan_loc_offset']
-    add_noise = config['data']['add_noise']
+    # add_noise = config['data']['add_noise']
     photon_rate = config['data']['photon_rate']
     shot_noise_rate = config['data']['shot_noise_rate']
-    display = config['data']['display']
-    data_dir = os.path.join(root_dir, config['data']['data_dir']) + 'probe_spacing_{}/photon_rate_{}/'.format(probe_spacing, photon_rate)
+    data_dir = config['data']['data_dir'] + 'probe_spacing_{}/photon_rate_{}/'.format(probe_spacing, photon_rate)
     if not os.path.exists(data_dir):
         os.makedirs(data_dir, exist_ok=True)
 

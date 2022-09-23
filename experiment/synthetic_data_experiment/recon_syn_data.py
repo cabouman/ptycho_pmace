@@ -1,8 +1,4 @@
-import sys
-from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
-import os, argparse, yaml
+import argparse, yaml
 import datetime as dt
 from shutil import copyfile
 from utils.utils import *
@@ -10,7 +6,8 @@ from ptycho import *
 
 
 '''
-This file reconstructs complex transmittance image by processing the synthetic data and compares results from reconstruction approaches. 
+This file reconstructs complex transmittance image by processing the synthetic data and 
+compares results from reconstructions. 
 '''
 
 
@@ -40,20 +37,18 @@ def main():
         config = yaml.safe_load(f)
 
     # Read data from config file
-    obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
-    probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
-    data_dir = os.path.join(root_dir, config['data']['data_dir'])
+    obj_dir = config['data']['obj_dir']
+    probe_dir = config['data']['probe_dir']
+    data_dir = config['data']['data_dir']
 
     # Read reconstruction settings from config file
-    joint_recon = config['recon']['joint_recon']
     display = config['recon']['display']
     window_coords = config['recon']['window_coords']
-    num_iter = config['recon']['num_iter']
     
     # Determine output directory with time stamp
     today_date = dt.date.today()
     date_time = dt.datetime.strftime(today_date, '%Y-%m-%d_%H_%M/')
-    save_dir = os.path.join(os.path.join(root_dir, config['recon']['out_dir']), date_time)
+    save_dir = os.path.join(config['recon']['out_dir'], date_time)
 
     # Create the directory
     try:
@@ -92,8 +87,8 @@ def main():
         recon_win = None
 
     # Reconstruction parameters
-    recon_args = dict(init_obj=init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
-                      recon_win=recon_win,num_iter=config['recon']['num_iter'], joint_recon=False)
+    recon_args = dict(init_obj=init_obj, ref_obj=ref_obj, ref_probe=ref_probe, recon_win=recon_win,
+                      num_iter=config['recon']['num_iter'], joint_recon=config['recon']['joint_recon'])
     fig_args = dict(ref_img=ref_obj, display_win=recon_win, display=display)
 
     # ePIE recon
