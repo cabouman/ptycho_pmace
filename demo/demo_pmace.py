@@ -1,7 +1,5 @@
 import sys, os, argparse, yaml
 from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
 from shutil import copyfile
 from utils.utils import *
 from ptycho.oo_pmace import *
@@ -15,7 +13,7 @@ This file demonstrates reconstruction of complex transmittance image using PMACE
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic image reconstruction using PMACE.')
     parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', const='demo_pmace.yaml',
-                        default=os.path.join(root_dir, 'configs/demo_pmace.yaml'))
+                        default='config/demo_pmace.yaml')
     return parser
 
 
@@ -27,11 +25,11 @@ def main():
     with open(args.config_dir, 'r') as f:
         config = yaml.safe_load(f)
 
-    obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
-    probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
-    data_dir = os.path.join(root_dir, config['data']['data_dir'])
+    obj_dir = config['data']['obj_dir']
+    probe_dir = config['data']['probe_dir']
+    data_dir = config['data']['data_dir']
     window_coords = config['data']['window_coords']
-    save_dir = os.path.join(root_dir, config['recon']['out_dir'])
+    save_dir = config['recon']['out_dir']
 
     # check directory
     print("Creating output directory '%s' ..." % save_dir)
@@ -72,7 +70,7 @@ def main():
     alpha = config['recon']['data_fit_param']
     rho = config['recon']['rho']
     probe_exp = config['recon']['probe_exp']
-    sigma = config['recon']['denoising_param']
+    # sigma = config['recon']['denoising_param']
     fig_args = dict(display_win=recon_win, save_dir=save_dir)
 
     # use class named PMACE to create object
