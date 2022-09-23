@@ -1,7 +1,3 @@
-import sys
-from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
 import argparse, yaml
 import datetime as dt
 from shutil import copyfile
@@ -10,7 +6,7 @@ from ptycho import *
 
 
 '''
-This file demonstrates the reconstruction of complex transmittance image by processing the synthetic data. 
+This file demonstrates the reconstruction of complex transmittance image by processing the real CuFoam data. 
 '''
 
 
@@ -39,12 +35,12 @@ def main():
         config = yaml.safe_load(f)
 
     # Read data from config file
-    obj_dir = os.path.join(root_dir, config['data']['obj_dir'])
-    probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
-    data_dir = os.path.join(root_dir, config['data']['data_dir'])
+    obj_dir = config['data']['obj_dir']
+    probe_dir = config['data']['probe_dir']
+    data_dir = config['data']['data_dir']
     display = config['data']['display']
     window_coords = config['data']['window_coords']
-    out_dir = os.path.join(root_dir, config['output']['out_dir'])
+    out_dir = config['output']['out_dir']
 
     # Determine time stamp
     today_date = dt.date.today()
@@ -110,19 +106,19 @@ def main():
     # SHARP recon
     relax_pm = config['SHARP']['relax_pm']
     sharp_dir = save_dir + 'SHARP/'
-    sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir,**recon_args)
+    sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir, **recon_args)
     # Plot reconstructed image
     plot_CuFoam_img(sharp_result['object'], img_title='SHARP', save_dir=sharp_dir, **fig_args)
 
-    # SHARP+ recon
-    sharp_plus_pm = config['SHARP_plus']['relax_pm']
-    sharp_plus_dir = save_dir + 'SHARP_plus/'
-    sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
-    # Plot reconstructed image
-    plot_CuFoam_img(sharp_plus_result['object'], img_title='SHARP+', save_dir=sharp_plus_dir, **fig_args)
+    # # SHARP+ recon
+    # sharp_plus_pm = config['SHARP_plus']['relax_pm']
+    # sharp_plus_dir = save_dir + 'SHARP_plus/'
+    # sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
+    # # Plot reconstructed image
+    # plot_CuFoam_img(sharp_plus_result['object'], img_title='SHARP+', save_dir=sharp_plus_dir, **fig_args)
 
     # PMACE recon
-    alpha = config['PMACE']['alpha']                
+    alpha = config['PMACE']['data_fit_pm']
     rho = config['PMACE']['rho']                       # Mann averaging parameter
     probe_exp = config['PMACE']['probe_exponent']      # probe exponent
     pmace_dir = save_dir + 'PMACE/'
@@ -131,16 +127,16 @@ def main():
     # Plot reconstructed image
     plot_CuFoam_img(pmace_result['obj_revy'], img_title='PMACE', save_dir=pmace_dir, **fig_args)
 
-    # reg-PMACE recon
-    alpha = config['reg-PMACE']['alpha']
-    rho = config['reg-PMACE']['rho']
-    probe_exp = config['reg-PMACE']['probe_exponent']
-    bm3d_psd = config['reg-PMACE']['bm3d_psd']      
-    reg_pmace_dir = save_dir + 'reg_PMACE/'
-    reg_pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, rho=rho, probe_exp=probe_exp,
-                                         add_reg=True, sigma=bm3d_psd, save_dir=reg_pmace_dir, **recon_args)
-    # Plot reconstructed image
-    plot_CuFoam_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', save_dir=reg_pmace_dir, **fig_args)
+    # # reg-PMACE recon
+    # alpha = config['reg-PMACE']['alpha']
+    # rho = config['reg-PMACE']['rho']
+    # probe_exp = config['reg-PMACE']['probe_exponent']
+    # bm3d_psd = config['reg-PMACE']['bm3d_psd']
+    # reg_pmace_dir = save_dir + 'reg_PMACE/'
+    # reg_pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, rho=rho, probe_exp=probe_exp,
+    #                                      add_reg=True, sigma=bm3d_psd, save_dir=reg_pmace_dir, **recon_args)
+    # # Plot reconstructed image
+    # plot_CuFoam_img(reg_pmace_result['obj_revy'], img_title='reg-PMACE', save_dir=reg_pmace_dir, **fig_args)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
