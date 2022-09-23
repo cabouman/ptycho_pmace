@@ -1,16 +1,14 @@
-import sys, math
-from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
 import argparse, yaml
 import datetime as dt
 from shutil import copyfile
 from utils.utils import *
 from ptycho import *
+from ..experiment_funcs import *
 
 
 '''
-This file demonstrates the reconstruction of complex transmittance image on pre-processed real data [1]. The pre-processing steps are introduced in [2].
+This file demonstrates the reconstruction of complex transmittance image on pre-processed real data [1]. 
+The pre-processing steps are introduced in [2].
 
 [1] Marchesini, Stefano. Ptychography Gold Ball Example Dataset. United States: N. p., 2017. Web. doi:10.11577/1454414.
 [2] ... .
@@ -24,40 +22,6 @@ def build_parser():
     return parser
 
 
-def plot_goldball_img(cmplx_img, display_win=None, display=False, save_dir=None):
-    """ Function to plot reconstruction results in this experiment. """
-    # check directory
-    if save_dir is not None:
-        os.makedirs(save_dir, exist_ok=True)
-    # initialize window and determine area for showing and comparing images
-    if display_win is None:
-        display_win = np.ones_like(cmplx_img, dtype=np.complex64)
-    non_zero_idx = np.nonzero(display_win)
-    a, b = np.maximum(0, np.amin(non_zero_idx[0])), np.minimum(cmplx_img.shape[0], np.amax(non_zero_idx[0]) + 1)
-    c, d = np.maximum(0, np.amin(non_zero_idx[1])), np.minimum(cmplx_img.shape[1], np.amax(non_zero_idx[1]) + 1)
-    win_img = cmplx_img[a:b, c:d]
-    # phase normalization
-    norm_img = np.abs(win_img) * np.exp(1j * (np.angle(win_img) - np.mean(np.angle(win_img))))
-    # plot real part of complex image
-    real_plot = plt.imshow(np.real(norm_img), cmap='gray', vmax=140, vmin=70)
-    plt.colorbar()
-    plt.axis('off')
-    if save_dir is not None:
-        plt.savefig(save_dir + 'real_img', bbox_inches='tight', pad_inches=0, dpi=160)
-    if display:
-        plt.show()
-    plt.clf()
-    # plot imaginary part of complex image
-    imag_plot = plt.imshow(np.imag(norm_img), cmap='gray', vmax=60, vmin=-30)
-    plt.colorbar()
-    plt.axis('off')
-    if save_dir is not None:
-        plt.savefig(save_dir + 'imag_img', bbox_inches='tight', pad_inches=0, dpi=160)
-    if display:
-        plt.show()
-    plt.clf()
-
-
 def main():
     # Arguments
     parser = build_parser()
@@ -68,11 +32,11 @@ def main():
         config = yaml.safe_load(f)
 
     # Read data from config file
-    probe_dir = os.path.join(root_dir, config['data']['probe_dir'])
-    data_dir = os.path.join(root_dir, config['data']['data_dir'])
+    probe_dir = config['data']['probe_dir']
+    data_dir = config['data']['data_dir']
     display = config['data']['display']
     window_coords = config['data']['window_coords']
-    out_dir = os.path.join(root_dir, config['output']['out_dir'])
+    out_dir = config['output']['out_dir']
 
     # Determine time stamp
     today_date = dt.date.today()
@@ -96,9 +60,9 @@ def main():
     ref_probe = load_img(probe_dir)
 
     # Load intensity only measurements(data) from file and pre-process the data
-    y_meas = load_measurement(data_dir + 'processed_frame_data/')
-    tukey_win = gen_tukey_2D_window(np.zeros_like(y_meas[0]))
-    y_meas = y_meas * tukey_win
+    y_tmp = load_measurement(data_dir + 'processed_frame_data/')
+    tukey_win = gen_tukey_2D_window(np.zeros_like(y_tmp[0]))
+    y_meas = y_tmp * tukey_win
 
     # Load scan points
     scan_loc_file = pd.read_csv(data_dir + 'Translation.tsv.txt', sep=None, engine='python', header=0)
@@ -144,12 +108,12 @@ def main():
     # Plot reconstructed image
     plot_goldball_img(sharp_result['object'], save_dir=sharp_dir, **fig_args)
 
-    # SHARP+ recon
-    sharp_plus_pm = config['SHARP_plus']['relax_pm']
-    sharp_plus_dir = save_dir + 'SHARP_plus/'
-    sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(sharp_plus_result['object'], save_dir=sharp_plus_dir, **fig_args)
+    # # SHARP+ recon
+    # sharp_plus_pm = config['SHARP_plus']['relax_pm']
+    # sharp_plus_dir = save_dir + 'SHARP_plus/'
+    # sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
+    # # Plot reconstructed image
+    # plot_goldball_img(sharp_plus_result['object'], save_dir=sharp_plus_dir, **fig_args)
 
     # PMACE recon
     alpha = config['PMACE']['alpha']                
