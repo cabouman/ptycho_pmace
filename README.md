@@ -12,19 +12,18 @@ conda activate ptycho
 ```
 Then install the required packages through
 ```console
-pip install -r requirements.txt
+python setup.py install
 ```
 
 ## Files
 #### 1. demo <br/>
-This folder contains the demo to demonstrate the generation of synthetic data (phaseless measurements) and 
-PMACE reconstruction of complex object by processing the simulated data.
+This folder contains the demo to demonstrate PMACE reconstruction of complex object by processing the simulated data.
 #### 2. utils <br/>
-It contains functions such as error calculation, etc. 
+It contains functions needed for the package, etc. 
 #### 3. ptycho <br/>
 It contains specific functions of PMACE and other algorithms for differnet use. 
-#### 4. configs <br/>
-It contains configuration files for generating synthetic data and reconstruction demo.
+#### 4. experiment <br/>
+It contains experiment files that reproduce the reconstruction results on both synthetic data and real data.
 
 
 ## Runing the demo
