@@ -1,8 +1,8 @@
 import argparse, yaml
 import datetime as dt
 from shutil import copyfile
-from utils.utils import *
 from ptycho import *
+from ..experiment_funcs import *
 
 
 '''
@@ -15,14 +15,6 @@ def build_parser():
     parser.add_argument('config_dir', type=str, help='Configuration file.', nargs='?', const='CuFoam_data.yaml',
                         default='config/CuFoam_data.yaml')
     return parser
-
-
-def plot_CuFoam_img(cmplx_img, img_title, display_win=None, display=False, save_dir=None):
-    """ Function to plot reconstruction results in this experiment. """
-    save_fname = None if (save_dir is None) else save_dir + 'recon_cmplx_img'
-    plot_cmplx_img(cmplx_img, img_title=img_title, ref_img=None,
-                   display_win=display_win, display=display, save_fname=save_fname,
-                   fig_sz=[8, 3], mag_vmax=2, mag_vmin=0, real_vmax=1.9, real_vmin=-1.3, imag_vmax=1.3, imag_vmin=-1.9)
 
 
 def main():
