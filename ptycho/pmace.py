@@ -95,6 +95,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
     nrmse_obj = []
     nrmse_probe = []
+    nrmse_meas = []
 
     est_obj = np.asarray(init_obj, dtype=cdtype)
     cur_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
@@ -165,6 +166,11 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         else:
             revy_probe = est_probe
 
+        # calculate error in measurement domain
+        est_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
+        est_meas = np.abs(compute_ft(est_probe * est_patch))
+        nrmse_meas.append(compute_nrmse(est_meas, y_meas))
+
     # calculate time consumption
     print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
@@ -173,14 +179,16 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
         if nrmse_obj:
             save_array(nrmse_obj, save_dir + 'nrmse_obj_' + str(nrmse_obj[-1]))
+        if nrmse_meas:
+            save_array(nrmse_meas, save_dir + 'nrmse_meas_' + str(nrmse_meas[-1]))
         if joint_recon:
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
             if nrmse_probe:
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
-    keys = ['object', 'probe', 'err_obj', 'err_probe']
-    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe]
+    keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
+    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
     output = dict(zip(keys, vals))
 
     return output

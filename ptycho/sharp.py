@@ -9,19 +9,19 @@ def fourier_projector(frame_data, y_meas):
     P_aj z_j = F^* {y_j * F z_j / |F z_j|}.
     Args:
         frame_data: image patches multiplied by beam profile function at each scan position, i.e. D*P_j*x.
-        diffr_data: pre-processed diffraction patterns (recorded phase-less measurements).
+        y_meas: pre-processed diffraction patterns (recorded phase-less measurements).
     Returns:
         revised estimates of frames.
     """
     # FT{D*P_j*v}]
-    f = compute_ft(frame_data)
+    f_tmp = compute_ft(frame_data)
     # IFT { y \times FT{D*P_j*v}] / |FT{D*P_j*v}]| }
-    output = compute_ift(y_meas * np.exp(1j * np.angle(f)))
+    output = compute_ift(y_meas * np.exp(1j * np.angle(f_tmp)))
 
     return output
 
 
-def space_projector(frame_data, probe, coords, norm, img_sz):
+def space_projector(frame_data, probe, coords, img_wgt, img_sz):
     """
     The image projector matches the object with object domain constraint.
                            P_Q = Q (Q^* Q)^(-1) Q^*
@@ -33,13 +33,13 @@ def space_projector(frame_data, probe, coords, norm, img_sz):
         frame_data: the extracted frames z_j = D P_j x.
         probe: the beam profile function.
         coords: coordinates of projections.
-        norm: \sum P_j^t D^* D P_j.
+        img_wgt: \sum P_j^t D^* D P_j.
         img_sz: the shape of full-size image.
     Returns:
         revised estimates of frames.
     """
-    wgt_img = patch2img(frame_data * np.conj(probe), coords, img_sz, norm)
-    output = img2patch(wgt_img, coords, frame_data.shape) * probe
+    img_tmp = patch2img(frame_data * np.conj(probe), coords, img_sz, img_wgt)
+    output = img2patch(img_tmp, coords, frame_data.shape) * probe
 
     return output
 
@@ -86,7 +86,6 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     # calculate spatially-varying image weights
     img_sz = est_obj.shape
     img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
-
 
     # SHARP reconstruction
     start_time = time.time()
@@ -135,7 +134,6 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         est_meas = np.abs(compute_ft(est_probe * est_patch))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-
     # calculate time consumption
     print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
@@ -157,7 +155,6 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     output = dict(zip(keys, vals))
 
     return output
-
 
 
 def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
@@ -203,7 +200,6 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
     img_sz = est_obj.shape
     img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
 
-
     # SHARP+ reconstruction
     start_time = time.time()
     print('SHARP+ recon starts ...')
@@ -247,7 +243,6 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
         est_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
         est_meas = np.abs(compute_ft(est_probe * est_patch))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
-
 
     # calculate time consumption
     print('Time consumption of {}:'.format(approach), time.time() - start_time)

@@ -21,8 +21,8 @@ class PMACE:
             ref_probe: complex reference image.
             recon_win: pre-defined/assigned window for comparing reconstruction results.
             save_dir: directory to save reconstruction results.
-            pmace_probe_exp: exponent of probe weighting in consensus calculation of image estimate.
-            pmace_image_exp: exponent of image weighting in consensus calculation of probe estimate.
+            probe_exp: exponent of probe weighting in consensus calculation of image estimate.
+            image_exp: exponent of image weighting in consensus calculation of probe estimate.
         """
         # initialization 
         self.dtype_cmplx = np.complex64
@@ -62,8 +62,9 @@ class PMACE:
         
         self.obj_nrmse = []
         self.probe_nrmse = []
-        self.images = []
-        self.images.append(self.cur_image[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
+        self.meas_nrmse = []
+        # self.images = []
+        # self.images.append(self.cur_image[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
 
     def cast(self, value, num_type):
         """
@@ -77,6 +78,7 @@ class PMACE:
         """
         self.obj_nrmse = []
         self.probe_nrmse = []
+        self.meas_nrmse = []
 
     def check_fpath(self, fpath):
         """
@@ -143,12 +145,11 @@ class PMACE:
         
         return output_image.astype(self.dtype_cmplx)
 
-    def dbar(self, probe_mat, patches):
+    def dbar(self, probe_mat):
         """
         Function to obtain consensus result from probe mat.
         Args:
             probe_mat: spacing-varying probes.
-            patches: projected image patches.
         Returns:
             complex probe.
         """
@@ -277,32 +278,38 @@ class PMACE:
                     est_probe_adj = est_probe
             else:
                 est_probe_adj = None
- 
+
+            # calculate error in measurement domain
+            est_patch = self.img2patch(est_image)
+            est_meas = np.abs(compute_ft(est_probe * est_patch))
+            self.meas_nrmse.append(compute_nrmse(est_meas, self.y_meas))
+
             # append reconstructed images
             #self.images.append(est_image_adj[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
             if (i+1) % 10 == 0:
-                self.images.append(est_image_adj[self.blk_idx[0]: self.blk_idx[1], self.blk_idx[2]: self.blk_idx[3]])
                 print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
 
         # calculate time consumption
         print('Time consumption:', time.time() - start_time)
 
-        # create gif image
-        gen_gif(self.images, fps=2, save_dir=self.save_dir)
+        # # create gif image
+        # gen_gif(self.images, fps=2, save_dir=self.save_dir)
 
         # save recon results
         if self.save_dir is not None:
             save_tiff(est_image, self.save_dir + 'obj_est_iter_{}.tiff'.format(i + 1))
             if self.obj_nrmse:
-                save_array(self.obj_nrmse, self.save_dir  + 'obj_nrmse_' + str(self.obj_nrmse[-1]))
+                save_array(self.obj_nrmse, self.save_dir + 'obj_nrmse_' + str(self.obj_nrmse[-1]))
+            if self.meas_nrmse:
+                save_array(self.meas_nrmse, self.save_dir + 'meas_nrmse_' + str(self.meas_nrmse[-1]))
             if joint_recon:
                 save_tiff(est_probe, self.save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
                 if self.probe_nrmse:
                     save_array(self.probe_nrmse, self.save_dir + 'probe_nrmse_' + str(self.probe_nrmse[-1]))
 
         # return recon results
-        keys = ['object', 'err_obj', 'probe', 'err_probe']
-        vals = [est_image_adj, self.obj_nrmse, est_probe_adj, self.probe_nrmse]
+        keys = ['object', 'err_obj', 'probe', 'err_probe', 'err_meas']
+        vals = [est_image_adj, self.obj_nrmse, est_probe_adj, self.probe_nrmse, self.meas_nrmse]
         output = dict(zip(keys, vals))
 
         return output

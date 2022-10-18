@@ -95,7 +95,6 @@ def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, re
             save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
             if nrmse_probe:
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
-    
 
     # return recon results
     keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
