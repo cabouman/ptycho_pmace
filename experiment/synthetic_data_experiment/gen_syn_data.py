@@ -67,5 +67,6 @@ def main():
         os.makedirs(data_dir)
     copyfile(args.config_dir, data_dir + 'config.yaml')
 
+
 if __name__ == '__main__':
     main()
