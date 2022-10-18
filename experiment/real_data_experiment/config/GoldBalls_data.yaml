@@ -1,10 +1,10 @@
 data:
-  probe_dir: ../../data/real_data/GoldBalls_data/ref_probe.tiff
-  data_dir: ../../data/real_data/GoldBalls_data/
+  probe_dir: ../../data/real_data/GoldBalls_data/processed_GoldBalls_data/ref_probe.tiff
+  data_dir: ../../data/real_data/GoldBalls_data/processed_GoldBalls_data/
   window_coords: [100, 500, 100, 500]
   display: False
 recon:
-  num_iter: 100
+  num_iter: 1
   joint_recon: False
 ePIE:
   obj_step_sz: 1
@@ -17,6 +17,6 @@ PMACE:
   rho: 0.5
   probe_exponent: 1.5
 output:
-  out_dir: ../../output/experiment/real_case/GoldBalls_data_result/
+  out_dir: ../../output/experiment/real_case/GoldBalls_result/
 
 

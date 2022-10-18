@@ -3,15 +3,13 @@ import datetime as dt
 from shutil import copyfile
 from utils.utils import *
 from ptycho import *
-from ..experiment_funcs import *
+from ptycho.pie import *
+from real_experiment_funcs import *
 
 
 '''
-This file demonstrates the reconstruction of complex transmittance image on pre-processed real data [1]. 
-The pre-processing steps are introduced in [2].
-
+This file demonstrates the reconstruction of complex transmittance image on gold balls data [1]. 
 [1] Marchesini, Stefano. Ptychography Gold Ball Example Dataset. United States: N. p., 2017. Web. doi:10.11577/1454414.
-[2] ... .
 '''
 
 
@@ -60,12 +58,12 @@ def main():
     ref_probe = load_img(probe_dir)
 
     # Load intensity only measurements(data) from file and pre-process the data
-    y_tmp = load_measurement(data_dir + 'processed_frame_data/')
+    y_tmp = load_measurement(data_dir + 'frame_data/')
     tukey_win = gen_tukey_2D_window(np.zeros_like(y_tmp[0]))
     y_meas = y_tmp * tukey_win
 
     # Load scan points
-    scan_loc_file = pd.read_csv(data_dir + 'Translation.tsv.txt', sep=None, engine='python', header=0)
+    scan_loc_file = pd.read_csv(data_dir + 'Translations.tsv.txt', sep=None, engine='python', header=0)
     scan_loc = scan_loc_file[['FCx', 'FCy']].to_numpy()
 
     # calculate the coordinates of projections
@@ -91,7 +89,7 @@ def main():
     # ePIE recon
     obj_step_sz = config['ePIE']['obj_step_sz']
     epie_dir = save_dir + 'ePIE/'
-    epie_result = pie.epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
+    epie_result = epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
     # Plot reconstructed image
     plot_goldball_img(epie_result['object'], save_dir=epie_dir, **fig_args)
 
@@ -123,8 +121,7 @@ def main():
     pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha, rho=rho, probe_exp=probe_exp, 
                                      add_reg=False, save_dir=pmace_dir, **recon_args)
     # Plot reconstructed image
-    plot_goldball_img(pmace_result['obj_revy'], save_dir=pmace_dir, **fig_args)
-
+    plot_goldball_img(pmace_result['object'], save_dir=pmace_dir, **fig_args)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
