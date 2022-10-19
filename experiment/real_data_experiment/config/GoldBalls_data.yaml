@@ -4,7 +4,7 @@ data:
   window_coords: [100, 500, 100, 500]
   display: False
 recon:
-  num_iter: 1
+  num_iter: 100
   joint_recon: False
 ePIE:
   obj_step_sz: 1

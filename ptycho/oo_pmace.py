@@ -277,7 +277,8 @@ class PMACE:
                 else:
                     est_probe_adj = est_probe
             else:
-                est_probe_adj = None
+                est_probe = self.cur_probe
+                est_probe_adj = est_probe
 
             # calculate error in measurement domain
             est_patch = self.img2patch(est_image)

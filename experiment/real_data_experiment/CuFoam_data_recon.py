@@ -2,7 +2,8 @@ import argparse, yaml
 import datetime as dt
 from shutil import copyfile
 from ptycho import *
-from ..experiment_funcs import *
+from ptycho.pie import *
+from real_experiment_funcs import *
 
 
 '''
@@ -85,7 +86,7 @@ def main():
     # ePIE recon
     obj_step_sz = config['ePIE']['obj_step_sz']
     epie_dir = save_dir + 'ePIE/'
-    epie_result = pie.epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
+    epie_result = epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
     # Plot reconstructed image
     plot_CuFoam_img(epie_result['object'], img_title='ePIE', save_dir=epie_dir, **fig_args)
 
