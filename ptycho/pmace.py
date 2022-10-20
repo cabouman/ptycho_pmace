@@ -11,7 +11,7 @@ def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
         y_meas: pre-processed ptychographic measurements.
         data_fit_prm: prm/(1-prm) denotes noise-to-signal ratio of data.
     Return:
-        New estiamtes of projected image patches or complex probe.
+        New estimates of projected image patches or complex probe.
     """
     # DFT{D * P_j * v}
     f = compute_ft(cur_est * joint_est)
@@ -26,7 +26,7 @@ def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
 def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1, blk_idx=None):
     """
     The consensus operator G takes weighted average of projections and 
-    realloates the consensus results.
+    reallocates the consensus results.
     Args:
         patch: current estimate of image patches.
         patch_bounds: scan coordinates of projections.

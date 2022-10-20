@@ -78,7 +78,7 @@ def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offs
     Args:
         obj: complex sample image to be scanned.
         probe: complex probe.
-        num_pts: number of scan points.
+        num_pt: number of scan points.
         probe_spacing: probe spacing between neighboring scan positions.
         randomization: option to add random offsets to each scan point.
         max_offset: maximum offsets to be added to scan points along each dimension.
@@ -104,7 +104,6 @@ def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offs
         print('Warning: Scanning beyond valid region! Please extend image or reduce probe spacing. ')
 
     return scan_pt
-
 
 
 def gen_syn_data(obj, probe, patch_bounds, add_noise=True, photon_rate=1e5, shot_noise_pm=0.5, save_dir=None):
@@ -233,7 +232,7 @@ def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_int
     if fres_propagation:
         m, n = init_probe.shape
         fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=2 * np.pi / source_wl, z=propagation_dist)
-    	# fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1, jit=True)
+        # fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1, jit=True)
         output = fres_op(init_probe)
     else:
         output = init_probe
@@ -313,7 +312,7 @@ def compute_ift(input_array, threads=None):
     """
     Function to take 2D inverse DFT of input using pyfftw.
     Args:
-        input: input.
+        input_array: input.
         threads: number of threads for performing IDFT using pyfftw.
     Returns:
         results of 2D inverse DFT.
@@ -368,7 +367,7 @@ def save_tiff(cmplx_img, save_dir):
     """
     Function to save complex image to given path.
     Args:
-        input: complex image.
+        cmplx_img: complex image.
         save_dir: save .tiff image to specific directory.
     """
     # save recon results
@@ -409,9 +408,9 @@ def get_proj_coords_from_data(scan_loc, y_meas):
 
 def gen_tukey_2D_window(init_win, shape_param=0.5):
     """
-    Funtion to generate a 2D Tukey window.
+    Function to generate a 2D Tukey window.
     Args:
-        init_window: initialized output window.
+        init_win: initialized output window.
         shape_param: shape parameter.
     Returns:
         2D Tukey window with maximum value 1.

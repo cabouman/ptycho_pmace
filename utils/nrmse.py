@@ -20,8 +20,8 @@ def compute_nrmse(img, ref_img, cstr=None):
 
     # compute MSE
     num_px = float(np.sum(np.abs(cstr))) if (cstr is not None) else float(img.shape[0] * img.shape[1])
-    rmse = np.sqrt(np.sum(np.abs(img - ref_img) ** 2) / num_px)
-    output = rmse / np.sqrt(np.sum(np.abs(ref_img) ** 2) / num_px)
+    rmse = np.sqrt(np.sum(np.abs(img_adj - ref_img_adj) ** 2) / num_px)
+    output = rmse / np.sqrt(np.sum(np.abs(ref_img_adj) ** 2) / num_px)
 
     return output
 
@@ -49,7 +49,7 @@ def phase_norm(img, ref_img, cstr=None):
     phase shift to the reconstruction results given the known ground truth image.
     Args:
         img: the reconstruction needs phase normalization.
-        img_ref: the known ground truth image or reference image.
+        ref_img: the known ground truth image or reference image.
     Returns:
         phase normalized reconstruction.
     """

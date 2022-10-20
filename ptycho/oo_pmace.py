@@ -1,7 +1,5 @@
 import sys, os
 from pathlib import Path
-root_dir = Path(__file__).parent.absolute().parent.absolute()
-sys.path.append(str(root_dir))
 from utils.utils import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 import random
