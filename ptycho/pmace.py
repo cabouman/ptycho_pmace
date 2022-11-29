@@ -1,5 +1,6 @@
 from utils.utils import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
+import itertools
 
 
 def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
@@ -56,10 +57,84 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
     return cmplx_img, new_patch
 
 
+            
+def search_offset(img, prb, patch_crd, given_meas):
+    """
+    The function to try the offset that matches current estimate with measurements.
+    Args:
+        img: current estimate of full-sized images.
+        prb: current estimate of complex probe.
+        patch_crd: current coordinates that describes the scan position.
+        data_fit_prm: pre-processed ptychographic measurements.
+    Return:
+        [offset along x-axis, offset along y-axis].
+    """
+    patch_bound = np.copy(patch_crd)
+    meas = np.copy(given_meas)
+    est_obj = np.copy(img)
+    est_probe = np.copy(prb)
+
+    x_offset = [-1, 0, 1]
+    y_offset = [-1, 0, 1]
+    # x_offset = [0]
+    # y_offset = [0]
+    offsets = product(x_offset, y_offset)
+    offset_ls = []
+    err_ls = []
+    for offset in offsets:
+        curr_offset = np.asarray(offset)
+        offset_ls.append(curr_offset)
+        shifted_patch, shifted_patch_crds = shift_position(patch_bound, curr_offset, est_obj)
+        tmp_meas = np.abs(est_probe * shifted_patch)
+        shift_err = np.linalg.norm(meas - phase_norm(np.copy(tmp_meas), meas))
+        err_ls.append(shift_err)
+    idx = np.array(err_ls).argmin()
+#     print('x_offset =, y_offset', offset_ls[idx],'minimum err :', err_ls[idx])
+
+    return offset_ls[idx]
+
+def shift_position(img, patch_bound, offset=[0, 0]):
+    """
+    The function to shift the scan position and extract new patch from complex image. 
+    Args:
+        img: current estimate of full-sized images.
+        patch_bound: current coordinates that describes the scan position of a patch.
+        offset: amount of shifting current patch.
+    Return:
+        shifted patch, coordinates of the shifted patch.
+    """
+    given_offset = np.copy(offset)
+    est_obj = np.copy(img)
+    patch_crd = np.copy(patch_bound)
+
+    x_offset, y_offset = given_offset[0], given_offset[1]
+    crd0, crd1, crd2, crd3 = patch_crd[0], patch_crd[1], patch_crd[2], patch_crd[3]
+    patch_width, patch_height = patch_crd[1] - patch_crd[0], patch_crd[3] - patch_crd[2]
+
+    if crd0 + x_offset < 0:
+        shifted_crd0, shifted_crd1 = 0, patch_width
+    elif crd1 + x_offset > est_obj.shape[0]:
+        shifted_crd0, shifted_crd1 = est_obj.shape[0] - patch_width, est_obj.shape[0]
+    else:
+        shifted_crd0, shifted_crd1 = np.max([0, crd0 + x_offset]), np.min([crd1 + x_offset, est_obj.shape[0]])
+
+    if crd2 + y_offset < 0:
+        shifted_crd2, shifted_crd3 = 0, patch_height
+    elif crd3 + y_offset > est_obj.shape[1]:
+        shifted_crd2, shifted_crd3 = est_obj.shape[1] - patch_height, est_obj.shape[1]
+    else:
+        shifted_crd2, shifted_crd3 = np.max([0, crd2 + y_offset]), np.min([crd3 + y_offset, est_obj.shape[1]])
+        
+    output_patch = img[shifted_crd0:shifted_crd1, shifted_crd2:shifted_crd3]
+    output_crds = [shifted_crd0, shifted_crd1, shifted_crd2, shifted_crd3]
+        
+    return output_patch, output_crds
+
+
 def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
-                rho=0.5, probe_exp=1.5, obj_exp=0.5, add_reg=False, sigma=0.02):
+                rho=0.5, probe_exp=1.5, obj_exp=0.5, add_reg=False, sigma=0.02, position_correction=False):
     """
     Function to perform PMACE reconstruction on ptychographic data.
     Args:
@@ -80,6 +155,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         obj_exp: exponent of image weighting in consensus calculation of probe estimate.
         add_reg: option to apply denoiser.
         sigma: denoising parameter.
+        position_correction: option to refine scan positions.
     Return:
         Reconstructed complex images and NRMSE between reconstructions and reference images.
     """
@@ -148,6 +224,18 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
             # obtain estiamte of complex probe
             est_probe = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
+        
+        # refine scan positions
+        if position_correction:
+            for j in range(len(y_meas)):
+                tmp_bound = np.copy(patch_bounds[j, :])
+                tmp_meas = np.copy(y_meas)
+                tmp_obj = np.copy(est_obj)
+                tmp_probe = np.copy(est_probe)
+                [x_offset, y_offset] = search_offset(tmp_obj, tmp_probe, tmp_bound, tmp_meas[j])
+                tmp_patch, patch_bounds[j, :] = shift_position(tmp_obj, tmp_bound, [x_offset, y_offset])
+            # Update patch estimates using revised scan positions
+            new_patch = img2patch(tmp_obj, patch_bounds, y_meas.shape)
 
         # phase normalization and scale image to minimize the intensity difference
         if ref_obj is not None:
