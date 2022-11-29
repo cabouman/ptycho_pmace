@@ -1,0 +1,21 @@
+data:
+  data_dir: /depot/bouman/users/qzhai/ptycho_data/GoldBallsData/processed_GoldBalls_data/
+  window_coords: [100, 500, 100, 500]
+  display: False
+recon:
+  num_iter: 100
+  joint_recon: True
+ePIE:
+  obj_step_sz: 1
+  probe_step_sz: 1
+SHARP:
+  relax_pm: 0.6
+#SHARP_plus:
+#  relax_pm: 0.6
+PMACE:
+  obj_data_fit_param: 0.1
+  probe_data_fit_param: 0.1
+output:
+  out_dir: /depot/bouman/users/qzhai/ptycho_data/GoldBallsData/output/experiment/real_case/GoldBalls_blind_joint_recon_result/
+
+
