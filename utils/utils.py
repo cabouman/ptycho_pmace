@@ -1,6 +1,7 @@
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
-import sys, os, pyfftw, torch, re, imageio
+import sys, os, pyfftw  
+import re, imageio
 import scico.linop.optics as op
 from .display import *
 from .nrmse import *
