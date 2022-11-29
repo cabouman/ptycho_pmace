@@ -34,7 +34,7 @@ It contains experiment files that reproduce the reconstruction results on both s
 cd demo/
 python demo_pmace.py
 ```
-4. The results are saved at [output link](https://drive.google.com/drive/folders/1feA5LdkEjVJhqhyFRu7ErgqwKa9Nbkxp?usp=sharing).
+4. The results are saved to [output link](https://drive.google.com/drive/folders/1feA5LdkEjVJhqhyFRu7ErgqwKa9Nbkxp?usp=sharing).
 
 ## Related publications
 For more information on the methods implemented in this code, please see:
