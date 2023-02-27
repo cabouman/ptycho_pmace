@@ -1,4 +1,5 @@
 from utils.utils import *
+from utils.nrmse import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 import itertools
 
@@ -47,6 +48,8 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
         if blk_idx is None:
             blk_idx = [0, img_sz[0], 0, img_sz[1]]
         tmp_img = cmplx_img[blk_idx[0]: blk_idx[1], blk_idx[2]: blk_idx[3]]
+        ## apply DnCNN
+        #denoised_img = denoise_dncnn(tmp_img)
         # apply complex bm3d
         denoised_img = bm4d(tmp_img, bm3d_psd, profile=BM4DProfileBM3DComplex())[:, :, 0]
         cmplx_img[blk_idx[0]: blk_idx[1], blk_idx[2]: blk_idx[3]] = denoised_img
@@ -89,7 +92,6 @@ def search_offset(img, prb, patch_crd, given_meas):
         shift_err = np.linalg.norm(meas - phase_norm(np.copy(tmp_meas), meas))
         err_ls.append(shift_err)
     idx = np.array(err_ls).argmin()
-#     print('x_offset =, y_offset', offset_ls[idx],'minimum err :', err_ls[idx])
 
     return offset_ls[idx]
 
@@ -134,7 +136,7 @@ def shift_position(img, patch_bound, offset=[0, 0]):
 def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
-                rho=0.5, probe_exp=1.5, obj_exp=0.5, add_reg=False, sigma=0.02, position_correction=False):
+                rho=0.5, probe_exp=1.5, obj_exp=0, add_reg=False, sigma=0.02, position_correction=False):
     """
     Function to perform PMACE reconstruction on ptychographic data.
     Args:
@@ -178,13 +180,19 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     new_patch = np.copy(cur_patch)
 
     est_probe = np.asarray(init_probe, dtype=cdtype) if joint_recon else ref_probe.astype(cdtype)
-    consens_probe = np.copy(est_probe).astype(cdtype)
-    cur_probe_arr = [est_probe] * len(y_meas)
-    new_probe_arr = np.copy(cur_probe_arr)
+    if est_probe.ndim < 3:
+        probe_modes = np.expand_dims(np.copy(est_probe), axis=0)
+    else:
+        probe_modes = np.copy(est_probe)
+    num_mode = len(probe_modes)
+    y_intensity = y_meas ** 2
+    #consens_probe = np.copy(est_probe).astype(cdtype)
+    #cur_probe_arr = [est_probe] * len(y_meas)
+    #new_probe_arr = np.copy(cur_probe_arr)
 
     # calculate image weight and patch weight
     image_sz = est_obj.shape
-    patch_weight = np.abs(consens_probe) ** probe_exp
+    patch_weight = np.sum(np.abs(probe_modes) ** probe_exp, axis=0)
     image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
 
     # determine the area for applying denoiser
@@ -194,12 +202,19 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     crd2, crd3 = np.max([0, np.amin(dn_idx[1])]), np.min([np.amax(dn_idx[1])+1, est_obj.shape[1]])
     blk_idx = [crd0, crd1, crd2, crd3]
 
-    start_time = time.time()
+    #start_time = time.time()
     print('{} recon starts ...'.format(approach))
     # PMACE reconstruction
     for i in range(num_iter):
-        # w <- F(v; w)
-        cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
+        ## w <- F(v; w)
+        #cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
+        cur_patch = np.zeros_like(new_patch, dtype=cdtype)
+        est_meas = [np.abs(compute_ft(np.copy(tmp_mode) * new_patch))**2 for tmp_mode in probe_modes]
+        total_meas = np.sum(est_meas, axis=0)
+        for mode_idx in range(num_mode):
+            cur_mode = np.copy(probe_modes[mode_idx])
+            res_meas = np.sqrt(np.array(y_intensity - total_meas + est_meas[mode_idx]).clip(0, None))
+            cur_patch += prox_map_op(new_patch, cur_mode, res_meas, obj_data_fit_prm) / num_mode
         # z <- G(2w - v)
         est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds, img_wgt=image_weight, 
                                             img_sz=image_sz, add_reg=add_reg, bm3d_psd=sigma, blk_idx=blk_idx)
@@ -213,18 +228,31 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             # calculate probe weights
             probe_arr_weight = np.abs(consens_patch) ** obj_exp
             probe_weight = np.sum(probe_arr_weight, 0)
-            # w <- F(v; w)
-            cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, y_meas, probe_data_fit_prm)
-            # z <- G(2w - v)
-            consens_probe = np.sum((2 * cur_probe_arr - new_probe_arr) * probe_arr_weight, 0) / probe_weight
-            # v <- v + 2 \rho (z - w)
-            new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
+            # calculate residual measured intensity
+            est_meas = [np.abs(compute_ft(np.copy(tmp_mode) * consens_patch))**2 for tmp_mode in probe_modes]
+            total_meas = np.sum(est_meas, axis=0)
+            for mode_idx in range(num_mode):
+                cur_mode = np.copy(probe_modes[mode_idx])
+                consens_probe = np.copy(cur_mode).astype(cdtype)
+                cur_probe_arr = [consens_probe] * len(y_meas)
+                new_probe_arr = np.copy(cur_probe_arr)
+                # w <- F(v; w)
+                res_meas = np.sqrt(np.array(y_intensity - total_meas + est_meas[mode_idx]).clip(0, None))
+                cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, res_meas, probe_data_fit_prm)
+                # z <- G(2w - v)
+                consens_probe = np.sum((2 * cur_probe_arr - new_probe_arr) * probe_arr_weight, 0) / probe_weight
+                #consens_probe = np.average((2 * cur_probe_arr - new_probe_arr), axis=0)
+                # v <- v + 2 \rho (z - w)
+                new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
+                 # update current probe mode
+                probe_mode[mode_idx] = consens_probe
             # update image weights
-            patch_weight = np.abs(consens_probe) ** probe_exp
+            patch_weight = np.sum(np.abs(consens_probe) ** probe_exp, axis=0)
             image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
-            # obtain estiamte of complex probe
-            est_probe = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
-        
+            ## obtain estiamte of complex probe
+            #est_probe = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
+            ##est_probe = np.average(new_probe_arr, axis=0)
+         
         # refine scan positions
         if position_correction:
             for j in range(len(y_meas)):
