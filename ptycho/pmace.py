@@ -206,72 +206,127 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     print('{} recon starts ...'.format(approach))
     # PMACE reconstruction
     for i in range(num_iter):
-        ## w <- F(v; w)
-        #cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
-        cur_patch = np.zeros_like(new_patch, dtype=cdtype)
-        est_meas = [np.abs(compute_ft(np.copy(tmp_mode) * new_patch))**2 for tmp_mode in probe_modes]
-        total_meas = np.sum(est_meas, axis=0)
-        for mode_idx in range(num_mode):
-            cur_mode = np.copy(probe_modes[mode_idx])
-            res_meas = np.sqrt(np.array(y_intensity - total_meas + est_meas[mode_idx]).clip(0, None))
-            cur_patch += prox_map_op(new_patch, cur_mode, res_meas, obj_data_fit_prm) / num_mode
+        # # data-fitting operator with single mode
+        # # w <- F(v; w) 
+        # cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
+
+        # # data-fitting operator with multi-mode
+        tmp_patch = np.zeros_like(new_patch, dtype=cdtype)
+        est_intsty = [np.abs(compute_ft(np.copy(tmp_mode) * new_patch)) ** 2 for tmp_mode in probe_modes]
+        sum_intsty = np.sum(est_intsty, axis=0)
+        for mode_idx, cur_mode in enumerate(probe_modes):
+            # # for sanity check with single probe mode
+            # res_meas = y_meas
+            # # clip-to-zero strategy
+            # res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]).clip(0, None))
+            # complex sqrt
+            res_meas = np.emath.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]))
+            # w <- \sum_k F_{j, k}(v; w)
+            tmp_patch += prox_map_op(new_patch, cur_mode, res_meas, obj_data_fit_prm)
+
+        # w <- \sum_k F_{j, k}(v; w) / M_p
+        cur_patch = tmp_patch / len(probe_modes)
+
         # z <- G(2w - v)
-        est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds, img_wgt=image_weight, 
+        est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds,
+                                            img_wgt=image_weight,
                                             img_sz=image_sz, add_reg=add_reg, bm3d_psd=sigma, blk_idx=blk_idx)
+
         # v <- v + 2 \rho (z - w)
         new_patch = new_patch + 2 * rho * (consens_patch - cur_patch)
         # obtain estimate of complex object
         if not add_reg:
             est_obj = patch2img(new_patch * patch_weight, patch_bounds, image_sz, image_weight)
-
+            
         if joint_recon:
-            # calculate probe weights
+            # calculate probe weights (TODO: change probe )
+            # TODO: modify consensus operator to take average of probes
             probe_arr_weight = np.abs(consens_patch) ** obj_exp
             probe_weight = np.sum(probe_arr_weight, 0)
-            # calculate residual measured intensity
-            est_meas = [np.abs(compute_ft(np.copy(tmp_mode) * consens_patch))**2 for tmp_mode in probe_modes]
-            total_meas = np.sum(est_meas, axis=0)
-            for mode_idx in range(num_mode):
-                cur_mode = np.copy(probe_modes[mode_idx])
-                consens_probe = np.copy(cur_mode).astype(cdtype)
-                cur_probe_arr = [consens_probe] * len(y_meas)
-                new_probe_arr = np.copy(cur_probe_arr)
-                # w <- F(v; w)
-                res_meas = np.sqrt(np.array(y_intensity - total_meas + est_meas[mode_idx]).clip(0, None))
+            
+            # multi-mode recon
+            est_intsty = [np.abs(compute_ft(tmp_mode * consens_patch)) ** 2 for tmp_mode in probe_modes]
+            sum_intsty = np.sum(est_intsty, axis=0)
+            for mode_idx, cur_mode in enumerate(probe_modes):
+                # # for sanity check
+                # res_meas = y_meas
+                # # clip-to-zero strategy
+                # res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]).clip(0, None))
+                # complex sqrt
+                res_meas = np.emath.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]))
+                # w <- \sum_k F_{j, k}(v; w)
+                new_probe_arr = probe_dict[mode_idx]
                 cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, res_meas, probe_data_fit_prm)
+
                 # z <- G(2w - v)
                 consens_probe = np.sum((2 * cur_probe_arr - new_probe_arr) * probe_arr_weight, 0) / probe_weight
-                #consens_probe = np.average((2 * cur_probe_arr - new_probe_arr), axis=0)
                 # v <- v + 2 \rho (z - w)
                 new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
-                 # update current probe mode
-                probe_mode[mode_idx] = consens_probe
+
+                # update probe modes
+                # probe_modes[mode_idx] = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
+                probe_modes[mode_idx] = consens_probe
+                probe_dict[mode_idx] = new_probe_arr
+
             # update image weights
-            patch_weight = np.sum(np.abs(consens_probe) ** probe_exp, axis=0)
+            patch_weight = np.sum(np.abs(probe_modes) ** probe_exp, axis=0)
             image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
-            ## obtain estiamte of complex probe
-            #est_probe = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
-            ##est_probe = np.average(new_probe_arr, axis=0)
+            
+            # obtain estiamte of complex probe
+            est_probe = probe_modes[0]
+            
+            # # single-mode recon
+            # # w <- F(v; w)
+            # cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, y_meas, probe_data_fit_prm)
+            # # z <- G(2w - v)
+            # consens_probe = np.sum((2 * cur_probe_arr - new_probe_arr) * probe_arr_weight, 0) / probe_weight
+            # # v <- v + 2 \rho (z - w)
+            # new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
+            # # update image weights
+            # patch_weight = np.abs(consens_probe) ** probe_exp
+            # image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
+            # # obtain estiamte of complex probe
+            # est_probe = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
+
+            if add_mode:
+                if i + 1 in add_mode:
+                    # est_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
+                    est_intsty = [np.abs(compute_ft(tmp_mode * consens_patch)) ** 2 for tmp_mode in probe_modes]
+                    sum_intsty = np.sum(est_intsty, axis=0)
+                    # # clip-to-zero strategy
+                    # res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty).clip(0, None))
+                    # complex sqrt strategy
+                    res_meas = np.emath.sqrt(np.asarray(y_intsty - sum_intsty))
+                    # TODO: check patch for calculating new mode
+                    # new_mode = np.average(divide_cmplx_numbers(compute_ift(res_meas), est_patch), axis=0)
+                    # new_mode = np.average(divide_cmplx_numbers(compute_ift(res_meas), new_patch), axis=0)
+                    probe_dict[len(probe_modes)] = np.asarray(divide_cmplx_numbers(compute_ift(res_meas), new_patch))
+                    new_mode = np.average(divide_cmplx_numbers(compute_ift(res_meas), new_patch), axis=0)
+                    probe_modes = np.concatenate((probe_modes, np.expand_dims(np.copy(new_mode), axis=0)), axis=0)
+
+                    # CHECKPOINT
+
          
-        # refine scan positions
-        if position_correction:
-            for j in range(len(y_meas)):
-                tmp_bound = np.copy(patch_bounds[j, :])
-                tmp_meas = np.copy(y_meas)
-                tmp_obj = np.copy(est_obj)
-                tmp_probe = np.copy(est_probe)
-                [x_offset, y_offset] = search_offset(tmp_obj, tmp_probe, tmp_bound, tmp_meas[j])
-                tmp_patch, patch_bounds[j, :] = shift_position(tmp_obj, tmp_bound, [x_offset, y_offset])
-            # Update patch estimates using revised scan positions
-            new_patch = img2patch(tmp_obj, patch_bounds, y_meas.shape)
+        # # refine scan positions
+        # if position_correction:
+        #     for j in range(len(y_meas)):
+        #         tmp_bound = np.copy(patch_bounds[j, :])
+        #         tmp_meas = np.copy(y_meas)
+        #         tmp_obj = np.copy(est_obj)
+        #         tmp_probe = np.copy(est_probe)
+        #         [x_offset, y_offset] = search_offset(tmp_obj, tmp_probe, tmp_bound, tmp_meas[j])
+        #         tmp_patch, patch_bounds[j, :] = shift_position(tmp_obj, tmp_bound, [x_offset, y_offset])
+        #     # Update patch estimates using revised scan positions
+        #     new_patch = img2patch(tmp_obj, patch_bounds, y_meas.shape)
 
         # phase normalization and scale image to minimize the intensity difference
+        # TODO: compare probe modes with gt probe
         if ref_obj is not None:
             revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
             err_obj = compute_nrmse(revy_obj * recon_win, ref_obj * recon_win, cstr=recon_win)
             nrmse_obj.append(err_obj)
         else:
-            revy_obj = est_obj 
+            revy_obj = est_obj
         if joint_recon:
             if ref_probe is not None:
                 revy_probe = phase_norm(np.copy(est_probe), ref_probe)
@@ -308,3 +363,78 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     output = dict(zip(keys, vals))
 
     return output
+
+    approach = 'reg-PMACE' if add_reg else 'PMACE'
+    cdtype = np.complex64
+    # check directory
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+
+    # initialization
+    if recon_win is None:
+        recon_win = np.ones_like(init_obj)
+
+    nrmse_obj = []
+    nrmse_probe = []
+    nrmse_meas = []
+
+    est_obj = np.asarray(init_obj, dtype=cdtype)
+    cur_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
+    new_patch = np.copy(cur_patch)
+
+    est_probe = np.asarray(init_probe, dtype=cdtype) if joint_recon else ref_probe.astype(cdtype)
+    consens_probe = np.copy(est_probe).astype(cdtype)
+    cur_probe_arr = [est_probe] * len(y_meas)
+    new_probe_arr = np.copy(cur_probe_arr)
+
+    # calculate image weight and patch weight
+    image_sz = est_obj.shape
+    patch_weight = np.abs(consens_probe) ** probe_exp
+    image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
+
+    # determine the area for applying denoiser
+    denoising_blk = recon_win
+    dn_idx = np.nonzero(denoising_blk)
+    crd0, crd1 = np.max([0, np.amin(dn_idx[0])]), np.min([np.amax(dn_idx[0]) + 1, est_obj.shape[0]])
+    crd2, crd3 = np.max([0, np.amin(dn_idx[1])]), np.min([np.amax(dn_idx[1]) + 1, est_obj.shape[1]])
+    blk_idx = [crd0, crd1, crd2, crd3]
+
+    # To incorporate multi probe modes
+    probe_modes = np.expand_dims(np.copy(est_probe), axis=0)  # [num_mode, mode_w, mode_h]
+    y_intsty = y_meas ** 2
+    probe_dict = {0: new_probe_arr}
+
+    start_time = time.time()
+    print('{} recon starts ...'.format(approach))
+    # PMACE reconstruction
+    for i in range(num_iter):
+        # # w <- F(v; w)
+        # cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
+
+        # data-fitting operator
+        tmp_patch = np.zeros_like(new_patch, dtype=cdtype)
+        est_intsty = [np.abs(compute_ft(np.copy(tmp_mode) * new_patch)) ** 2 for tmp_mode in probe_modes]
+        sum_intsty = np.sum(est_intsty, axis=0)
+
+        # check point
+        print(np.linalg.norm(y_intsty), np.linalg.norm(sum_intsty))
+        for mode_idx, cur_mode in enumerate(probe_modes):
+            plt.subplot(2, len(probe_modes) + 1, mode_idx + 1)
+            plt.imshow(np.real(est_intsty[mode_idx])[0], cmap='gray')
+            plt.title('insty of mode_{}'.format(mode_idx))
+            plt.colorbar()
+            plt.subplot(2, len(probe_modes) + 1, mode_idx + len(probe_modes) + 2)
+            plt.imshow(np.real(y_intsty - sum_intsty + est_intsty[mode_idx])[0].clip(0, None), cmap='gray')
+            plt.title('res insty of mode_{}'.format(mode_idx))
+            plt.colorbar()
+        plt.subplot(2, len(probe_modes) + 1, len(probe_modes) + 1)
+        plt.imshow(np.real(y_intsty)[0], cmap='gray')
+        plt.title('real insty')
+        plt.colorbar()
+        plt.show()
+        plt.clf()
+
+
+
+
+
