@@ -1,6 +1,6 @@
 PMACE
 -------------------------------------------------------------------
-**ptycho_pmace** is an easy to use python-based library for EM parameter estimation and classification using multivariate Gaussian mixture models.
+**ptycho_pmace** is an easy to use python-based library for PMACE framework for distributed reconstruction problems.
 
 
 System Requirements
@@ -16,6 +16,6 @@ We also recommend:
 
 License
 -------
-The project is licensed under the `BSD 3-Clause <https://github.com/cabouman/gmcluster/blob/main/LICENSE>`_ License.
+The project is licensed under the `BSD 3-Clause <https://github.com/cabouman/ptycho_pmace/LICENSE>`_ License.
 
 
