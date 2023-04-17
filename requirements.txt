@@ -5,7 +5,7 @@ scipy~=1.8.0
 pyfftw~=0.13.0
 torch
 PyYAML~=6.0
-imagecodecs==2022.22.22
+imagecodecs==2022.2.22
 scico
 ray~=2.3.1
 ray[tune]
