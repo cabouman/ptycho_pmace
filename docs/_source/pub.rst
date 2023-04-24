@@ -2,12 +2,7 @@
 Related Publications
 ====================
 
-For more information on the methods implemented in this code, please see:
-
-   :cite:`zhai2021projected`
-    
-   :cite:`zhai2023projected`
-    
+For more information on the methods implemented in this code, please see: :cite:`zhai2021projected` and :cite:`zhai2023projected` .
 
 **References**
 

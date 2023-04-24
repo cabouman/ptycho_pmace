@@ -23,7 +23,7 @@ The ``ptycho_pmace`` package currently is only available to download and install
 	  If you have Anaconda installed, run the following commands.
 	  
 		| ``cd dev_scripts``
-		| ``source ./install_all.sh``
+		| ``source ./clean_install_all.sh``
 		| ``cd ..``
 		
 	2.2. Manual installation:
@@ -58,5 +58,5 @@ The ``ptycho_pmace`` package currently is only available to download and install
 
   You can validate the installation by running a demo script.
   
-	| ``cd demo``
+	| ``cd demo/``
 	| ``python demo.py``

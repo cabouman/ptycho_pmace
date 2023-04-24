@@ -1,35 +1,8 @@
+ptycho module
 ==============
-ptycho package
-==============
 
-Module contents
----------------
 
-.. automodule:: ptycho
-   :members:
-   :undoc-members:
-   :show-inheritance:
-   
-Submodules
-----------
-
-ptycho.oo\_pmace module
------------------------
-
-.. automodule:: ptycho.oo_pmace
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ptycho.pie module
------------------
-
-.. automodule:: ptycho.pie
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-ptycho.pmace module
+ptycho.pmace 
 -------------------
 
 .. automodule:: ptycho.pmace
@@ -43,21 +16,20 @@ ptycho.pmace module
       prox_map_op
       consens_op
       pmace_recon
+      
+ptycho.oo\_pmace 
+-----------------------
 
-ptycho.sharp module
--------------------
-
-.. automodule:: ptycho.sharp
-   :members:
+.. automodule:: ptycho.oo_pmace
+   :members: PMACE
    :undoc-members:
    :show-inheritance:
 
-ptycho.wf module
-----------------
+   .. rubric:: **Functions:**
 
-.. automodule:: ptycho.wf
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   .. autosummary::
+      PMACE
+
+
 
 

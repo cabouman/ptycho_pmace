@@ -1,19 +1,8 @@
-utils package
+utils module
 =============
 
-Module contents
----------------
 
-.. automodule:: utils
-   :members:
-   :member-order:
-   :undoc-members:
-   :show-inheritance:
-   
-Submodules
-----------
-
-utils.utils module
+utils.utils 
 ------------------
 
 .. automodule:: utils.utils
@@ -30,7 +19,7 @@ utils.utils module
       img2patch
 
 
-utils.nrmse module
+utils.nrmse 
 ------------------
 
 .. automodule:: utils.nrmse
@@ -46,11 +35,11 @@ utils.nrmse module
       phase_norm
 
       
-utils.display module
+utils.display 
 --------------------
 
 .. automodule:: utils.display
-   :members: plot_scan_pt, plot_diffr_data, plot_nrmse, plot_cmplx_img
+   :members: plot_scan_pt, plot_nrmse, plot_cmplx_img
    :member-order: bysource
    :undoc-members:
    :show-inheritance:
@@ -59,7 +48,6 @@ utils.display module
 
    .. autosummary::
       plot_scan_pt
-      plot_diffr_data
       plot_nrmse
       plot_cmplx_img
 
