@@ -1,13 +1,24 @@
-import sys, os, argparse, yaml
-from pathlib import Path
-from shutil import copyfile
+import demo_utils
+import argparse, yaml
+import time
 from utils.utils import *
 from ptycho.oo_pmace import *
 
 
 '''
-This file demonstrates reconstruction of complex transmittance image using PMACE. 
+This script demonstrates reconstruction of complex transmittance image using PMACE. Demo functionality includes:
+ * Downloading demo dataset from specified urls;
+ * Loading reference object transmittance image and reference probe profile function;
+ * Loading scan locations, simulated measurements, and reconstruction parameters;
+ * Computing a reconstruction from the loaded data using PMACE;
+ * Displaying and saving the results.
 '''
+print('This script demonstrates reconstruction of complex transmittance image using PMACE. Demo functionality includes:\
+\n\t * Downloading demo dataset from specified urls; \
+\n\t * Loading reference object transmittance image and reference probe profile function; \
+\n\t * Loading scan locations, simulated measurements, and reconstruction parameters; \
+\n\t * Computing a reconstruction from the loaded data using PMACE; \
+\n\t * Displaying and saving the results.\n')
 
 
 def build_parser():
@@ -25,11 +36,19 @@ def main():
     with open(args.config_dir, 'r') as f:
         config = yaml.safe_load(f)
 
-    obj_dir = config['data']['obj_dir']
-    probe_dir = config['data']['probe_dir']
-    data_dir = config['data']['data_dir']
+    # url to NSI dataset.
+    dataset_url = config['dataset']['download_url']
+    # destination path to download and extract the phantom and NN weight files.
+    dataset_dir = config['dataset']['save_dir']  
+    # path to reference object, probe and intensity measurements
+    obj_dir = dataset_dir + config['data']['obj_dir']
+    probe_dir = dataset_dir + config['data']['probe_dir']
+    data_dir = dataset_dir + config['data']['data_dir']
     window_coords = config['data']['window_coords']
     save_dir = config['recon']['out_dir']
+    
+    # download dataset. The dataset path will be later used to define path to NSI files.
+    dataset_path = demo_utils.download_and_extract(dataset_url, dataset_dir)
 
     # check directory
     print("Creating output directory '%s' ..." % save_dir)
@@ -59,10 +78,10 @@ def main():
     # pre-define reconstruction region
     if window_coords is not None:
         xmin, xmax, ymin, ymax = window_coords[0], window_coords[1], window_coords[2], window_coords[3]
-        recon_win = np.zeros(init_obj.shape)
-        recon_win[xmin:xmax, ymin:ymax] = 1
     else:
-        recon_win = None
+        xmin, xmax, ymin, ymax = np.amin(scan_loc[0]), np.amax(scan_loc[0]), np.amin(scan_loc[1]), np.amax(scan_loc[1])
+    recon_win = np.zeros(init_obj.shape)
+    recon_win[xmin:xmax, ymin:ymax] = 1
 
     # reconstruction parameters
     num_iter = config['recon']['num_iter']
@@ -73,33 +92,29 @@ def main():
     # sigma = config['recon']['denoising_param']
     fig_args = dict(display_win=recon_win, save_dir=save_dir)
 
-    # use class named PMACE to create object
-    pmace_obj = PMACE(y_meas, patch_crds, 
-                      init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
-                      recon_win=recon_win, save_dir=save_dir, probe_exp=probe_exp)
+#     # use class named PMACE to create object
+#     pmace_obj = PMACE(y_meas, patch_crds, 
+#                       init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
+#                       recon_win=recon_win, save_dir=save_dir, probe_exp=probe_exp)
     
-    # PMACE recon
-    pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
-                                   obj_data_fit_param=alpha, rho=rho, use_reg=False)
-    plot_synthetic_img(pmace_result['object'], img_title='PMACE', **fig_args)
+#     # PMACE recon
+#     pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
+#                                    obj_data_fit_param=alpha, rho=rho, use_reg=False)
+#     demo_utils.plot_synthetic_img(pmace_result['object'], img_title='PMACE', **fig_args)
+
+    # Test wrapper function
+    pmace_obj = PMACE(pmace_recon, y_meas, patch_crds, init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
+                      recon_win=recon_win, save_dir=save_dir, probe_exp=probe_exp, num_iter=num_iter, 
+                      joint_recon=joint_recon, obj_data_fit_prm=alpha, rho=rho, add_reg=False)
+    pmace_result = pmace_obj()
+    demo_utils.plot_synthetic_img(pmace_result['object'], img_title='PMACE', **fig_args)
     
     ## reg-PMACE recon
-    #pmace_obj.reset()
-    #reg_pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
-    #                                   obj_data_fit_param=alpha, rho=rho, use_reg=True, sigma=sigma)
-    #plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', **fig_args)
+    # pmace_obj.reset()
+    # reg_pmace_result = pmace_obj.recon(num_iter=num_iter, joint_recon=joint_recon, 
+    #                                    obj_data_fit_param=alpha, rho=rho, use_reg=True, sigma=sigma)
+    # demo_utils.plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', **fig_args)
     
-
-def plot_synthetic_img(cmplx_img, img_title, display_win=None, save_dir=None):
-    if save_dir is not None:
-        os.makedirs(save_dir, exist_ok=True)
-    save_fname = None if (save_dir is None) else save_dir + '{}_recon_cmplx_img'.format(img_title)
-
-    # plot complex image
-    plot_cmplx_img(cmplx_img, img_title=img_title, display_win=display_win, save_fname=save_fname,
-                   mag_vmax=1, mag_vmin=0.5, phase_vmax=0, phase_vmin=-np.pi/4,
-                   real_vmax=1.1, real_vmin=0.8, imag_vmax=0, imag_vmin=-0.6)
-
 
 if __name__ == '__main__':
     main()
