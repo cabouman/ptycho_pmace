@@ -33,7 +33,7 @@ def plot_goldball_img(cmplx_img, ref_img=None, display_win=None, display=False, 
     fig_args = dict(bbox_inches='tight', pad_inches=0, dpi=160)
     
     # plot real part of complex image
-    real_plot = plt.imshow(np.real(norm_img), cmap='gray')#, vmax=140, vmin=70)
+    real_plot = plt.imshow(np.real(norm_img), cmap='gray', vmax=140, vmin=70)
     plt.colorbar()
     plt.axis('off')
     if save_dir is not None:
@@ -43,7 +43,7 @@ def plot_goldball_img(cmplx_img, ref_img=None, display_win=None, display=False, 
     plt.clf()
     
     # plot imaginary part of complex image
-    imag_plot = plt.imshow(np.imag(norm_img), cmap='gray')#, vmax=60, vmin=-30)
+    imag_plot = plt.imshow(np.imag(norm_img), cmap='gray', vmax=60, vmin=-30)
     plt.colorbar()
     plt.axis('off')
     if save_dir is not None:
@@ -53,7 +53,7 @@ def plot_goldball_img(cmplx_img, ref_img=None, display_win=None, display=False, 
     plt.clf()
 
     # plot magnitude of complex image
-    mag_plot = plt.imshow(np.abs(norm_img), cmap='gray')#, vmax=140, vmin=60)
+    mag_plot = plt.imshow(np.abs(norm_img), cmap='gray', vmax=140, vmin=60)
     plt.colorbar()
     plt.axis('off')
     if save_dir is not None:
@@ -63,7 +63,7 @@ def plot_goldball_img(cmplx_img, ref_img=None, display_win=None, display=False, 
     plt.clf()
     
     # plot phase of complex image
-    phase_plot = plt.imshow(np.angle(norm_img), cmap='gray')#, vmax=0.6, vmin=-0.2)
+    phase_plot = plt.imshow(np.angle(norm_img), cmap='gray', vmax=0.6, vmin=-0.2)
     plt.colorbar()
     plt.axis('off')
     if save_dir is not None:
