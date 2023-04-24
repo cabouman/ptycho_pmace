@@ -22,7 +22,7 @@ def skip(app, what, name, obj, would_skip, options):
 
 def setup(app):
     app.connect("autodoc-skip-member", skip)
-    
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -103,12 +103,12 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 html_theme_options = {
-    'analytics_anonymize_ip': False,
+   # 'analytics_anonymize_ip': False,
     'logo_only': False,
     'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,
-    'vcs_pageview_mode': '',
+   # 'vcs_pageview_mode': '',
     'style_nav_header_background': '#2980B9',
     # Toc options
     'collapse_navigation': False,
