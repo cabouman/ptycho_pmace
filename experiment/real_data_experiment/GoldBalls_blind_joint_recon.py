@@ -5,6 +5,9 @@ from utils.utils import *
 from ptycho import *
 from ptycho.pie import *
 from real_experiment_funcs import *
+#from utils.utils import denoise_dncnn
+import math
+from time import time
 
 
 '''
@@ -69,43 +72,45 @@ def main():
     img_sz = math.ceil(np.amax(scan_loc + np.maximum(y_meas.shape[1], y_meas.shape[2])))
     init_obj = np.ones((img_sz, img_sz), dtype=np.complex64)
     init_probe = gen_init_probe(y_meas, patch_bounds, init_obj, fres_propagation=False)
-
-    # Produce the cover/window for comparison
-    if window_coords is not None:
-        xmin, xmax, ymin, ymax = window_coords[0], window_coords[1], window_coords[2], window_coords[3]
-        recon_win = np.zeros(init_obj.shape)
-        recon_win[xmin:xmax, ymin:ymax] = 1
-    else:
-        recon_win = None
-
+    #print(window_coords)
+    ## Produce the cover/window for comparison
+    #if window_coords is not None:
+    #    xmin, xmax, ymin, ymax = window_coords[0], window_coords[1], window_coords[2], window_coords[3]
+    #    recon_win = np.zeros(init_obj.shape)
+    #    recon_win[xmin:xmax, ymin:ymax] = 1
+    #else:
+    #    recon_win = None
+    recon_win=None
+    print(window_coords)
+    print(recon_win)
     # Reconstruction parameters
     recon_args = dict(init_obj=init_obj, init_probe=init_probe, recon_win=recon_win, 
-                      num_iter=config['recon']['num_iter'], joint_recon=config['recon']['joint_recon'])
+                      num_iter=100, joint_recon=config['recon']['joint_recon'])
     fig_args = dict(display_win=recon_win, display=display)
 
-    # ePIE recon
-    obj_step_sz = config['ePIE']['obj_step_sz']
-    probe_step_sz = config['ePIE']['probe_step_sz']
-    epie_dir = save_dir + 'ePIE/'
-    epie_result = epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, probe_step_sz=probe_step_sz, save_dir=epie_dir, **recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(epie_result['object'], save_dir=epie_dir, **fig_args)
-    plot_goldball_probe(epie_result['probe'], save_dir=epie_dir, **fig_args)
+    ## ePIE recon
+    #obj_step_sz = config['ePIE']['obj_step_sz']
+    #probe_step_sz = config['ePIE']['probe_step_sz']
+    #epie_dir = save_dir + 'ePIE/'
+    #epie_result = epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, probe_step_sz=probe_step_sz, save_dir=epie_dir, **recon_args)
+    ## Plot reconstructed image
+    #plot_goldball_img(epie_result['object'], save_dir=epie_dir, **fig_args)
+    #plot_goldball_probe(epie_result['probe'], save_dir=epie_dir, display=display)
 
-    # Accelerated Wirtinger Flow (AWF) recon
-    awf_dir = save_dir + 'AWF/'
-    awf_result = wf.wf_recon(y_meas, patch_bounds, accel=True, save_dir=awf_dir, **recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(awf_result['object'], save_dir=awf_dir, **fig_args)
-    plot_goldball_probe(awf_result['probe'], save_dir=awf_dir, **fig_args)
+    ## Accelerated Wirtinger Flow (AWF) recon
+    #awf_dir = save_dir + 'AWF/'
+    #awf_result = wf.wf_recon(y_meas, patch_bounds, accel=True, save_dir=awf_dir, **recon_args)
+    ## Plot reconstructed image
+    #plot_goldball_img(awf_result['object'], save_dir=awf_dir, **fig_args)
+    #plot_goldball_probe(awf_result['probe'], save_dir=awf_dir, display=display)
 
-    # SHARP recon
-    relax_pm = config['SHARP']['relax_pm']
-    sharp_dir = save_dir + 'SHARP/'
-    sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir,**recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(sharp_result['object'], save_dir=sharp_dir, **fig_args)
-    plot_goldball_probe(sharp_result['probe'], save_dir=sharp_dir, **fig_args)
+    ## SHARP recon
+    #relax_pm = config['SHARP']['relax_pm']
+    #sharp_dir = save_dir + 'SHARP/'
+    #sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir,**recon_args)
+    ## Plot reconstructed image
+    #plot_goldball_img(sharp_result['object'], save_dir=sharp_dir, **fig_args)
+    #plot_goldball_probe(sharp_result['probe'], save_dir=sharp_dir, display=display)
 
     # # SHARP+ recon
     # sharp_plus_pm = config['SHARP_plus']['relax_pm']
@@ -114,15 +119,43 @@ def main():
     # # Plot reconstructed image
     # plot_goldball_img(sharp_plus_result['object'], save_dir=sharp_plus_dir, **fig_args)
 
+    ## PMACE recon
+    #alpha_1 = config['PMACE']['obj_data_fit_param']
+    #alpha_2 = config['PMACE']['probe_data_fit_param']                
+    #pmace_dir = save_dir + 'PMACE/'
+    #pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha_1, probe_data_fit_prm=alpha_2, 
+    #                                 add_reg=False, save_dir=pmace_dir, **recon_args)
+    ## Plot reconstructed image
+    #plot_goldball_img(pmace_result['object'], save_dir=pmace_dir, **fig_args)
+    #plot_goldball_probe(pmace_result['probe'], save_dir=pmace_dir, display=display)
+    #test = denoise_dncnn(init_obj)
+    #print('init_obj =', init_obj)
+    #print('test = ', test)
+    
     # PMACE recon
     alpha_1 = config['PMACE']['obj_data_fit_param']
-    alpha_2 = config['PMACE']['probe_data_fit_param']                
-    pmace_dir = save_dir + 'PMACE/'
+    alpha_2 = config['PMACE']['probe_data_fit_param']
+    print(alpha_1, alpha_2)                
+    pmace_dir = save_dir + 'PMACE_3mode_clip2zero_gamma_2/'
     pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha_1, probe_data_fit_prm=alpha_2, 
-                                     add_reg=False, save_dir=pmace_dir, **recon_args)
+                                     add_reg=False, save_dir=pmace_dir, add_mode=[20, 40], gamma=2, **recon_args)
     # Plot reconstructed image
     plot_goldball_img(pmace_result['object'], save_dir=pmace_dir, **fig_args)
-    plot_goldball_probe(pmace_result['probe'], save_dir=pmace_dir, **fig_args)
+    for mode_idx, cur_mode in enumerate(pmace_result['probe']):
+        plot_goldball_probe(cur_mode, save_dir=pmace_dir+'mode_{}/'.format(mode_idx), display=display)
+    #plot_goldball_probe(pmace_result['probe'], save_dir=pmace_dir, display=display)
+
+    ## PMACE recon
+    #alpha_1 = config['PMACE']['obj_data_fit_param']
+    #alpha_2 = config['PMACE']['probe_data_fit_param']
+    #print(alpha_1, alpha_2)                
+    #pmace_dir = save_dir + 'PMACE_sigma_007/'
+    #pmace_result = pmace.pmace_recon(y_meas, patch_bounds, obj_data_fit_prm=alpha_1, probe_data_fit_prm=alpha_2, 
+    #                                 add_reg=True, sigma=0.07, save_dir=pmace_dir, **recon_args)
+    ## Plot reconstructed image
+    #plot_goldball_img(pmace_result['object'], save_dir=pmace_dir, **fig_args)
+    #plot_goldball_probe(pmace_result['probe'], save_dir=pmace_dir, display=display)
+
 
     # Save config file to output directory
     if not os.path.exists(save_dir):
