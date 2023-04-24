@@ -96,6 +96,7 @@ We provide the parameters and data needed to reproduce our paper results for PMA
   2. Run the script using the following command:
 
      ```console
+     cd tests/synthetic_data_experiment/
      python recon_syn_data.py
      ```
 
@@ -105,6 +106,7 @@ We provide the parameters and data needed to reproduce our paper results for PMA
   2. Run the script using the following command:
 
      ```console
+     cd tests/real_data_experiment/
      python recon_GoldBalls_data.py
      ```
 
