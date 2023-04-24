@@ -1,44 +1,48 @@
+import time
 from utils.utils import *
+from utils.nrmse import *
 
 
 def fourier_projector(frame_data, y_meas):
-    """
-    This phase projector projects the frames onto the Fourier magnitude constraint.
-                   P_a z = [P_a1 z_1, P_a2 z_2, ..., P_aJ z_J]
-    where
-    P_aj z_j = F^* {y_j * F z_j / |F z_j|}.
+    """Fourier projector.
+
+    This Fourier projector projects frame data onto the Fourier magnitude constraints.
+
     Args:
-        frame_data: image patches multiplied by beam profile function at each scan position, i.e. D*P_j*x.
-        y_meas: pre-processed diffraction patterns (recorded phase-less measurements).
+        frame_data: product between illuminated object and probe.
+        y_meas: pre-processed data (square root of recorded phaseless intensity measurements).
+
     Returns:
-        revised estimates of frames.
+        revised estimates of frame data.
     """
-    # FT{D*P_j*v}]
+    # FT
     f_tmp = compute_ft(frame_data)
-    # IFT { y \times FT{D*P_j*v}] / |FT{D*P_j*v}]| }
+    
+    # IFT 
     output = compute_ift(y_meas * np.exp(1j * np.angle(f_tmp)))
 
     return output
 
 
 def space_projector(frame_data, probe, coords, img_wgt, img_sz):
-    """
-    The image projector matches the object with object domain constraint.
-                           P_Q = Q (Q^* Q)^(-1) Q^*
-    Or equivalently
-                            P_Q = Q Lambda^(-1) Q^*
-    where
-    Lambda = \sum_j P_j^t D^* D P_j.
+    """Space projector.
+    
+    This image projector matches the object with object domain constraint.
+    
     Args:
-        frame_data: the extracted frames z_j = D P_j x.
-        probe: the beam profile function.
+        frame_data: product between illuminated object and probe.
+        probe: complex beam profile function.
         coords: coordinates of projections.
-        img_wgt: \sum P_j^t D^* D P_j.
-        img_sz: the shape of full-size image.
+        img_wgt: image weight.
+        img_sz: shape of full-size image.
+        
     Returns:
-        revised estimates of frames.
+        revised estimates of frame data.
     """
+    # frame data to weighted image
     img_tmp = patch2img(frame_data * np.conj(probe), coords, img_sz, img_wgt)
+    
+    # image to frame data
     output = img2patch(img_tmp, coords, frame_data.shape) * probe
 
     return output
@@ -46,10 +50,12 @@ def space_projector(frame_data, probe, coords, img_wgt, img_sz):
 
 def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None, 
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None, relax_pm=0.75):
-    """
-    Function to perform PMACE reconstruction on ptychographic data.
+    """SHARP.
+    
+    Function to perform SHARP reconstruction on ptychographic data. 
+    
     Args:
-        y_meas: pre-processed measurements (diffraction patterns / intensity data).
+        y_meas: pre-processed data (square root of recorded phaseless intensity measurements).
         patch_bounds: scan coordinates of projections.
         init_obj: formulated initial guess of complex object.
         init_probe: formulated initial guess of complex probe.
@@ -60,11 +66,13 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         recon_win: pre-defined window for showing and comparing reconstruction results.
         save_dir: directory to save reconstruction results.
         relax_pm: relaxation parameter.
+        
     Returns:
-        Reconstructed complex images and NRMSE between reconstructions and reference images.
+        Reconstructed complex images and NRMSE between reconstructions and reference images.  
     """
     approach = 'SHARP'
     cdtype = np.complex64
+    
     # check directory
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
@@ -134,8 +142,11 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         est_meas = np.abs(compute_ft(est_probe * est_patch))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-    # calculate time consumption
-    print('Time consumption of {}:'.format(approach), time.time() - start_time)
+        if (i+1) % 10 == 0:
+            print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
+
+    # # calculate time consumption
+    # print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
     # save recon results
     if save_dir is not None:
@@ -150,6 +161,7 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
+    print('{} recon completed.'.format(approach))
     keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
     vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
     output = dict(zip(keys, vals))
@@ -159,10 +171,12 @@ def sharp_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
 def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                      num_iter=100, joint_recon=False, recon_win=None, save_dir=None, relax_pm=0.75):
-    """
-    Function to perform PMACE reconstruction on ptychographic data.
+    """SHARP+.
+    
+    Function to perform SHARP+ reconstruction on ptychographic data.
+    
     Args:
-        y_meas: pre-processed measurements (diffraction patterns / intensity data).
+        y_meas: pre-processed data (square root of recorded phaseless intensity measurements).
         patch_bounds: scan coordinates of projections.
         init_obj: formulated initial guess of complex object.
         init_probe: formulated initial guess of complex probe.
@@ -173,11 +187,13 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
         recon_win: pre-defined window for showing and comparing reconstruction results.
         save_dir: directory to save reconstruction results.
         relax_pm: relaxation parameter.
+        
     Returns:
         Reconstructed complex images and NRMSE between reconstructions and reference images.
     """
     approach = 'SHARP+'
     cdtype = np.complex64
+    
     # check directory
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
@@ -201,7 +217,7 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
     img_wgt = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, img_sz)
 
     # SHARP+ reconstruction
-    start_time = time.time()
+    # start_time = time.time()
     print('SHARP+ recon starts ...')
     for i in range(num_iter):
         # take projections
@@ -244,8 +260,11 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
         est_meas = np.abs(compute_ft(est_probe * est_patch))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-    # calculate time consumption
-    print('Time consumption of {}:'.format(approach), time.time() - start_time)
+        if (i+1) % 10 == 0:
+            print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
+
+    # # calculate time consumption
+    # print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
     # save recon results
     if save_dir is not None:
@@ -260,6 +279,7 @@ def sharp_plus_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=No
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
+    print('{} recon completed.'.format(approach))
     keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
     vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
     output = dict(zip(keys, vals))

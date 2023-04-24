@@ -5,12 +5,13 @@ from pylab import *
 
 
 def compute_nrmse(img, ref_img, cstr=None):
-    """
-    Function to calculate the Normalized Root-Mean-Square-Error (NRMSE) between two images x and y.
+    """Normalized Root-Mean-Square-Error (NRMSE) between two images.
+    
     Args:
         img: complex image.
         ref_img: reference image.
         cstr: area for comparison.
+        
     Returns:
         NRMSE between two images.
     """
@@ -27,11 +28,14 @@ def compute_nrmse(img, ref_img, cstr=None):
 
 
 def pha_err(img, ref_img):
-    """
-    The phase error = min | angle(img) - angle(gt) - 2*k*pi| where k \in {-1, 0, 1}
+    """Phase error.
+    
+    The phase error is given by min | angle(img) - angle(gt) - 2*k*pi| where k \in {-1, 0, 1}
+    
     Args:
         img: complex image.
         ref_img: complex reference image.
+        
     Returns:
         phase error between complex images.
     """
@@ -44,12 +48,16 @@ def pha_err(img, ref_img):
 
 
 def phase_norm(img, ref_img, cstr=None):
-    """
+    """Phase normalization.
+    
     The reconstruction is blind to absolute phase of ground truth image, so need to make
     phase shift to the reconstruction results given the known ground truth image.
+    
     Args:
         img: the reconstruction needs phase normalization.
         ref_img: the known ground truth image or reference image.
+        cstr: preconditioning window.
+        
     Returns:
         phase normalized reconstruction.
     """

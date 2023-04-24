@@ -1,21 +1,20 @@
-import tifffile as tiff
-from scipy.ndimage import gaussian_filter
 import sys, os, pyfftw  
 import re, imageio
 import scico.linop.optics as op
-from .display import *
-from .nrmse import *
+import tifffile as tiff
 import pandas as pd
 import numpy as np
 import multiprocessing as mp
 from scipy import signal
+from scipy.ndimage import gaussian_filter
 
 
 def int2float(arg):
-    """
-    Convert int argument to floating numbers.
+    """Convert int argument to floating numbers.
+    
     Args:
         arg: int argument.
+        
     Returns:
         floating numbers.
     """
@@ -25,10 +24,11 @@ def int2float(arg):
 
 
 def float2cmplx(arg):
-    """
-    Convert float argument to complex.
+    """Convert floating argument to complex.
+    
     Args:
         arg: float argument.
+        
     Returns:
         complex numbers.
     """
@@ -38,12 +38,13 @@ def float2cmplx(arg):
 
 
 def gen_gif(cmplx_images, fps=5, save_dir=None):
-    """
-    Generate .gif image for sequence of complex images.
+    """Generate .gif image given a sequence of complex images.
+    
     Args:
         cmplx_images: list of complex images.
         fps: frame per sec. 
         save_dir: output directory.
+        
     Returns:
         .gif images for real and imaginary parts.
     """
@@ -58,10 +59,11 @@ def gen_gif(cmplx_images, fps=5, save_dir=None):
 
 
 def load_img(img_dir):
-    """
-    Read image from file path.
+    """Read image from directory.
+    
     Args:
         img_dir: directory of the image.
+        
     Returns:
         complex image array.
     """
@@ -74,8 +76,8 @@ def load_img(img_dir):
 
 
 def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offset=5):
-    """
-    Function to generate scan locations.
+    """Generate scan locations.
+    
     Args:
         obj: complex sample image to be scanned.
         probe: complex probe.
@@ -83,6 +85,7 @@ def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offs
         probe_spacing: probe spacing between neighboring scan positions.
         randomization: option to add random offsets to each scan point.
         max_offset: maximum offsets to be added to scan points along each dimension.
+        
     Returns:
         generated scan points.
     """
@@ -107,17 +110,18 @@ def gen_scan_loc(obj, probe, num_pt, probe_spacing, randomization=True, max_offs
     return scan_pt
 
 
-def gen_syn_data(obj, probe, patch_bounds, add_noise=True, photon_rate=1e5, shot_noise_pm=0.5, save_dir=None):
-    """
-    Function to simulate the ptychographic intensity measurements (diffraction pattern in far-field plane).
+def gen_syn_data(obj, probe, patch_bounds, add_noise=True, peak_photon_rate=1e5, shot_noise_pm=0.5, save_dir=None):
+    """Simulate the ptychographic intensity measurements.
+    
     Args:
         obj: complex object.
         probe: complex probe.
         patch_bounds: scan coordinates of projections.
         add_noise: option to add noise to data.
-        photon_rate: rate of photon detection at detector.
+        peak_photon_rate: peak rate of photon detection at detector.
         shot_noise_pm: expected number of Poisson distributed dark current noise.
-        save_dir: directory for saving generated diffraction patterns.
+        save_dir: directory for saving generated data.
+        
     Returns:
         simualted ptychographic data.
     """
@@ -133,7 +137,7 @@ def gen_syn_data(obj, probe, patch_bounds, add_noise=True, photon_rate=1e5, shot
         # get peak signal value
         peak_signal_val = np.amax(noiseless_data)
         # calculate expected photon rate given peak signal value and peak photon rate
-        expected_photon_rate = noiseless_data * photon_rate / peak_signal_val
+        expected_photon_rate = noiseless_data * peak_photon_rate / peak_signal_val
         # poisson random values realization
         meas_in_photon_ct = np.random.poisson(expected_photon_rate, (num_pts, m, n))
         # add dark current noise
@@ -155,10 +159,11 @@ def gen_syn_data(obj, probe, patch_bounds, add_noise=True, photon_rate=1e5, shot
 
 
 def load_measurement(fpath):
-    """
-    Function to read measurements from path and pre-process data.
+    """Read measurements from path and pre-process data.
+    
     Args:
         fpath: file directory.
+        
     Returns:
         pre-processed measurement (square root of non-negative data).
     """
@@ -170,7 +175,10 @@ def load_measurement(fpath):
 
     # read the measurements and remove negative values
     meas_ls = []
-    for fname in sorted(os.listdir(fpath), key=key_func):
+    work_dir = os.listdir(fpath)
+    if '.DS_Store' in work_dir:
+        work_dir.remove('.DS_Store')
+    for fname in sorted(work_dir, key=key_func):
         y_meas = tiff.imread(os.path.join(fpath, fname))
         y_meas[y_meas < 0] = 0
         meas_ls.append(y_meas)
@@ -183,14 +191,15 @@ def load_measurement(fpath):
 
 
 def gen_init_obj(y_meas, coords, img_sz, ref_probe=None, lpf_sigma=10):
-    """
-    Function to formulate initial guess of complex object for reconstruction.
+    """Formulate initial guess of complex object for reconstruction.
+    
     Args:
-        y_meas: pre-processed diffraction patterns.
+        y_meas: pre-processed intensity measurements.
         coords: coordinates of projections.
         img_sz: size of full complex image.
         ref_probe: known or estimated complex probe function.
         lpf_sigma: standard deviation of Gaussian kernel for low-pass filtering the initialized guess.
+        
     Returns:
         formulated initial guess of complex transmittance image.
     """
@@ -210,8 +219,8 @@ def gen_init_obj(y_meas, coords, img_sz, ref_probe=None, lpf_sigma=10):
 
 def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_interval=None,
                    source_wl=0.140891, propagation_dist=4e2, lpf_sigma=2):
-    """
-    Function to formulate initial guess of complex probe for joint reconstruction on ptychographic data.
+    """Formulate initial complex probe from initialized object and data.
+    
     Args:
         y_meas: pre-processed diffraction patterns.
         coords: coordinates of projections.
@@ -221,6 +230,7 @@ def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_int
         source_wl: illumination wavelength.
         propagation_dist:propagation distance.
         lpf_sigma: standard deviation of Guassian kernel for removing high frequencies.
+        
     Returns:
         formualted initial guess of complex probe.
     """
@@ -244,13 +254,14 @@ def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_int
 
 
 def patch2img(img_patch, coords, img_sz, norm=None):
-    """
-    Function to project image patch back to full-sized image with weights.
+    """Project image patch to full-sized image with weights.
+    
     Args:
         img_patch: projected image patches.
         coords: coordinates of projections.
         img_sz: size of full image.
         norm: normalization weight.
+        
     Returns:
         full-sized complex image.
     """
@@ -270,12 +281,13 @@ def patch2img(img_patch, coords, img_sz, norm=None):
 
 
 def img2patch(img, coords, patch_sz):
-    """
-    Function to extract image patches from full-sized image.
+    """Extract image patches from full-sized image.
+    
     Args:
         img: full-sized image.
         coords: coordinates of projections.
         patch_sz: size of output patches.
+        
     Returns:
         projected image patches.
     """
@@ -289,12 +301,13 @@ def img2patch(img, coords, patch_sz):
     return output
 
 
-def compute_ft(input_array, threads=None):
-    """
-    Function to take 2D DFT of input using pyfftw.
+def compute_ft(input_array, threads=1):
+    """2D DFT.
+    
     Args:
         input_array: input.
         threads: number of threads for performing DFT using pyfftw.
+        
     Returns:
         result of 2D DFT.
     """
@@ -309,12 +322,13 @@ def compute_ft(input_array, threads=None):
     return output.astype(np.complex64)
 
 
-def compute_ift(input_array, threads=None):
-    """
-    Function to take 2D inverse DFT of input using pyfftw.
+def compute_ift(input_array, threads=1):
+    """2D inverse DFT.
+    
     Args:
         input_array: input.
         threads: number of threads for performing IDFT using pyfftw.
+        
     Returns:
         results of 2D inverse DFT.
     """
@@ -330,11 +344,12 @@ def compute_ift(input_array, threads=None):
 
 
 def scale(input_obj, out_range):
-    """
-    This function scales input  into the given range.
+    """Scales input into certain range.
+    
     Args:
         input_obj: object to be scaled.
         out_range: scale range.
+        
     Returns:
         scaled input.
     """
@@ -349,12 +364,13 @@ def scale(input_obj, out_range):
 
 
 def divide_cmplx_numbers(cmplx_num, cmplx_denom, tol=1e-15):
-    """
-    Take division regarding complex numbers.
+    """Division regarding complex numbers.
+    
     Args:
         cmplx_num: complex numerator.
         cmplx_denom: complex denominator.
         tol: set tolerance on denominator.
+        
     Returns:
         result.
     """
@@ -365,11 +381,11 @@ def divide_cmplx_numbers(cmplx_num, cmplx_denom, tol=1e-15):
 
 
 def save_tiff(cmplx_img, save_dir):
-    """
-    Function to save complex image to given path.
+    """Save complex image to specified directory.
+    
     Args:
         cmplx_img: complex image.
-        save_dir: save .tiff image to specific directory.
+        save_dir: specified directory for saving image.
     """
     # save recon results
     img = np.asarray(cmplx_img)
@@ -378,8 +394,8 @@ def save_tiff(cmplx_img, save_dir):
 
 
 def save_array(arr, save_dir):
-    """
-    Function to save array or list to given directory.
+    """Save array or list to specified directory.
+    
     Args:
         arr: numpy array or list.
         save_dir: directory for saving array.
@@ -390,11 +406,12 @@ def save_array(arr, save_dir):
 
 
 def get_proj_coords_from_data(scan_loc, y_meas):
-    """
-    Function to obtain projection coordinates from scan points.
+    """Calculate projection coordinates from scan points.
+    
     Args:
-        scan_loc: scan points.
-        y_meas: diffraction patterns.
+        scan_loc: scan locations.
+        y_meas: pre-processed measurements.
+        
     Returns:
         scan coordinates.
     """
@@ -408,11 +425,12 @@ def get_proj_coords_from_data(scan_loc, y_meas):
 
 
 def gen_tukey_2D_window(init_win, shape_param=0.5):
-    """
-    Function to generate a 2D Tukey window.
+    """Generate 2D Tukey window.
+    
     Args:
         init_win: initialized output window.
         shape_param: shape parameter.
+        
     Returns:
         2D Tukey window with maximum value 1.
     """
@@ -436,13 +454,14 @@ def gen_tukey_2D_window(init_win, shape_param=0.5):
 
 
 def drop_line(y_meas, scan_pts):
-    """
-    Function to reduce scan points and measurements by skipping lines with negative slope.
+    """Reduce scan points and measurements by skipping lines with negative slope.
+    
     Args:
-        y_meas: diffraction patterns.
+        y_meas: pre-processed measurements.
         scan_pts: scan points.
+        
     Returns:
-        reduced scan points and corresponding diffraction patterns.
+        reduced scan points and associated measurements.
     """
     # slope between two points
     def slope_between_pts(x, y):
@@ -456,3 +475,5 @@ def drop_line(y_meas, scan_pts):
         if slope < 0:
             pt_idx = np.delete(pt_idx, np.where(pt_idx == idx))
     return y_meas[np.sort(pt_idx)], scan_pts[np.sort(pt_idx)]
+
+
