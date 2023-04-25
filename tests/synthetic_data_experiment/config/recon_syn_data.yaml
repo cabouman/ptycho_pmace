@@ -1,8 +1,8 @@
 #Configuration file for experiment with synthetic data, overlap ratio 11.66%
 data:
-  obj_dir: ../../data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_image.tiff
-  probe_dir: ../../data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_probe.tiff
-  data_dir: ../../data/synthetic_data/SyntheticImg_data/simulated_data/photon_peak_1e4/probe_dist_76/
+  obj_dir: ../../data/PMACE_demo_data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_image.tiff
+  probe_dir: ../../data/PMACE_demo_data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_probe.tiff
+  data_dir: ../../data/PMACE_demo_data/synthetic_data/SyntheticImg_data/simulated_data/photon_peak_1e4/probe_dist_76/
 recon:
   joint_recon: False
   window_coords: [112, 912, 112, 912]
