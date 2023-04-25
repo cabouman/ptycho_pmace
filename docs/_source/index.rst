@@ -12,7 +12,7 @@ Welcome to ptycho_pmace's documentation!
 
    overview
    pub
-   
+
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
@@ -32,4 +32,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-   
