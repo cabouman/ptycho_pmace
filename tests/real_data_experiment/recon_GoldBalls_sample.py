@@ -8,15 +8,15 @@ from real_experiment_funcs import *
 
 
 '''
-This file demonstrates the reconstruction of complex transmittance image on gold balls data [1]. 
-[1] Marchesini, Stefano. Ptychography Gold Ball Example Dataset. United States: N. p., 2017. Web. doi:10.11577/1454414.
+This file demonstrates the reconstruction of complex transmittance image on pre-processed gold balls data.
+Original Data Source: Marchesini, Stefano. Ptychography Gold Ball Example Dataset. United States: N. p., 2017. Web. doi:10.11577/1454414.
 '''
 
 
 def build_parser():
     parser = argparse.ArgumentParser(description='Ptychographic image reconstruction on gold balls data set.')
-    parser.add_argument('config_dir', type=str, help='Configuration file.', nargs='?', const='GoldBalls_data.yaml',
-                        default='config/GoldBalls_data.yaml')
+    parser.add_argument('config_dir', type=str, help='Configuration file.', nargs='?', const='recon_GoldBalls_sample.yaml',
+                        default='config/recon_GoldBalls_sample.yaml')
     return parser
 
 
@@ -86,33 +86,6 @@ def main():
                       num_iter=config['recon']['num_iter'], joint_recon=config['recon']['joint_recon'])
     fig_args = dict(display_win=recon_win, display=display)
 
-    # ePIE recon
-    obj_step_sz = config['ePIE']['obj_step_sz']
-    epie_dir = save_dir + 'ePIE/'
-    epie_result = epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(epie_result['object'], save_dir=epie_dir, **fig_args)
-
-    # Accelerated Wirtinger Flow (AWF) recon
-    awf_dir = save_dir + 'AWF/'
-    awf_result = wf.wf_recon(y_meas, patch_bounds, accel=True, save_dir=awf_dir, **recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(awf_result['object'], save_dir=awf_dir, **fig_args)
-
-    # SHARP recon
-    relax_pm = config['SHARP']['relax_pm']
-    sharp_dir = save_dir + 'SHARP/'
-    sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir,**recon_args)
-    # Plot reconstructed image
-    plot_goldball_img(sharp_result['object'], save_dir=sharp_dir, **fig_args)
-
-    # # SHARP+ recon
-    # sharp_plus_pm = config['SHARP_plus']['relax_pm']
-    # sharp_plus_dir = save_dir + 'SHARP_plus/'
-    # sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
-    # # Plot reconstructed image
-    # plot_goldball_img(sharp_plus_result['object'], save_dir=sharp_plus_dir, **fig_args)
-
     # PMACE recon
     alpha = config['PMACE']['alpha']                
     rho = config['PMACE']['rho']                       # Mann averaging parameter
@@ -122,6 +95,33 @@ def main():
                                      add_reg=False, save_dir=pmace_dir, **recon_args)
     # Plot reconstructed image
     plot_goldball_img(pmace_result['object'], save_dir=pmace_dir, **fig_args)
+    
+    # ePIE recon
+    obj_step_sz = config['ePIE']['obj_step_sz']
+    epie_dir = save_dir + 'ePIE/'
+    epie_result = epie_recon(y_meas, patch_bounds, obj_step_sz=obj_step_sz, save_dir=epie_dir, **recon_args)
+    # Plot reconstructed image
+    plot_goldball_img(epie_result['object'], ref_img=pmace_result['object'], save_dir=epie_dir, **fig_args)
+
+    # Accelerated Wirtinger Flow (AWF) recon
+    awf_dir = save_dir + 'AWF/'
+    awf_result = wf.wf_recon(y_meas, patch_bounds, accel=True, save_dir=awf_dir, **recon_args)
+    # Plot reconstructed image
+    plot_goldball_img(awf_result['object'], ref_img=pmace_result['object'], save_dir=awf_dir, **fig_args)
+
+    # SHARP recon
+    relax_pm = config['SHARP']['relax_pm']
+    sharp_dir = save_dir + 'SHARP/'
+    sharp_result = sharp.sharp_recon(y_meas, patch_bounds, relax_pm=relax_pm, save_dir=sharp_dir,**recon_args)
+    # Plot reconstructed image
+    plot_goldball_img(sharp_result['object'], ref_img=pmace_result['object'], save_dir=sharp_dir, **fig_args)
+
+    # # SHARP+ recon
+    # sharp_plus_pm = config['SHARP_plus']['relax_pm']
+    # sharp_plus_dir = save_dir + 'SHARP_plus/'
+    # sharp_plus_result = sharp.sharp_plus_recon(y_meas, patch_bounds, relax_pm=sharp_plus_pm, save_dir=sharp_plus_dir, **recon_args)
+    # # Plot reconstructed image
+    # plot_goldball_img(sharp_plus_result['object'], ref_img=pmace_result['object'], save_dir=sharp_plus_dir, **fig_args)
 
     # Save config file to output directory
     if not os.path.exists(save_dir):

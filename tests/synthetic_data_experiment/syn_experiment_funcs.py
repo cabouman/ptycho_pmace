@@ -1,5 +1,5 @@
 from utils.utils import *
-
+from utils.display import *
 
 '''
 This file defines the functions needed for displaying experimental results. 

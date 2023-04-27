@@ -1,10 +1,9 @@
-from .nrmse import *
-import matplotlib.pyplot as plt
+from utils.nrmse import *
 
 
 def plot_scan_pt(scan_pt):
-    """ 
-    Function to plot scan points.
+    """Function to plot scan points.
+    
     Args:
         scan_pt: scan points.
     """
@@ -14,32 +13,23 @@ def plot_scan_pt(scan_pt):
     plt.clf()
 
 
-def plot_diffr_data(y_meas):
-    """
-    Function to plot diffraction pattern in original scale and dbscales.
-    Args:
-        y_meas: one diffraction pattern.
-    """
-    plt.subplot(211)
-    plt.imshow(y_meas, cmap='gray')
-    plt.title('diffraction data')
-    plt.axis('off')
-    plt.colorbar()
-
-    plt.subplot(212)
-    meas_dbscale = 10 * np.log10(y_meas + 1e-16)
-    plt.imshow(meas_dbscale, cmap='gray', vmin=0)
-    plt.title('data in decibel')
-    plt.axis('off')
-    plt.colorbar()
-
-    plt.show()
-    plt.clf()
+# def plot_diffr_data(y_meas):
+#     """Function to plot diffraction pattern.
+    
+#     Args:
+#         y_meas: diffraction pattern.
+#     """
+#     plt.imshow(y_meas, cmap='gray')
+#     plt.title('diffraction data')
+#     plt.axis('off')
+#     plt.colorbar()
+#     plt.show()
+#     plt.clf()
 
 
 def plot_nrmse(nrmse_ls, title, label, abscissa=None, step_sz=15, fig_sz=[10, 4.8], display=False, save_fname=None):
-    """
-    Function to plot the nrmse versus number of iterations.
+    """Function to plot the nrmse versus number of iterations.
+    
     Args:
         nrmse_ls: nrmse lists.
         title: corresponding title for each nrmse list.
@@ -101,8 +91,8 @@ def plot_nrmse(nrmse_ls, title, label, abscissa=None, step_sz=15, fig_sz=[10, 4.
 def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, display=False, save_fname=None,
                    fig_sz=[8, 3], mag_vmax=1, mag_vmin=0, phase_vmax=np.pi, phase_vmin=-np.pi,
                    real_vmax=1, real_vmin=0, imag_vmax=0, imag_vmin=-1):
-    """
-    Function to plot the complex object images and error images compared with reference image.
+    """Function to plot the complex object images and error images as compared with reference image.
+    
     Args:
         cmplx_img: complex image.
         img_title: title of complex image.

@@ -1,7 +1,10 @@
+dataset:
+  download_url: https://engineering.purdue.edu/~bouman/data_repository/data/PMACE_demo_data.tgz
+  save_dir: ../data/
 data:
-  obj_dir: ../data/synthetic_noisy_data/ground_truth_img/SIM-generating_image.tiff
-  probe_dir: ../data/synthetic_noisy_data/ground_truth_img/SIM-generating_probe.tiff
-  data_dir: ../data/synthetic_noisy_data/probe_spacing_68/photon_rate_10000.0/
+  obj_dir: PMACE_demo_data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_image.tiff
+  probe_dir: PMACE_demo_data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_probe.tiff
+  data_dir: PMACE_demo_data/synthetic_data/SyntheticImg_data/simulated_data/photon_peak_1e4/probe_dist_68/
   window_coords: [112, 912, 112, 912]
 recon:
   num_iter: 100

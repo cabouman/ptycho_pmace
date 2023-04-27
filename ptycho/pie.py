@@ -1,14 +1,18 @@
+import time
+from random import shuffle
 from utils.utils import *
-import random
+from utils.nrmse import *
 
 
 def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                obj_step_sz=0.5, probe_step_sz=0.5):
-    """
-    Function to perform PMACE reconstruction on ptychographic data.
+    """extended Ptychographic Iterative Engine (ePIE).
+    
+    Function to perform ePIE reconstruction on ptychographic data.
+    
     Args:
-        y_meas: pre-processed measurements (diffraction patterns / intensity data).
+        y_meas: pre-processed measurements (diffraction patterns).
         patch_bounds: scan coordinates of projections.
         init_obj: formulated initial guess of complex object.
         init_probe: formulated initial guess of complex probe.
@@ -20,11 +24,13 @@ def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, re
         save_dir: directory to save reconstruction results.
         obj_step_sz: step size parameter for updating object estimate.
         probe_step_sz: step size parameter for updating probe estimate.
-    Return:
-        Reconstructed complex images and NRMSE between reconstructions and reference images.
+        
+    Returns:
+        Reconstructed complex images and NRMSE between reconstructions and reference images. 
     """
     cdtype = np.complex64
     approach = 'ePIE'
+    
     # check directory
     if save_dir is not None:
         os.makedirs(save_dir, exist_ok=True)
@@ -42,10 +48,10 @@ def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, re
     est_probe = np.copy(init_probe).astype(cdtype) if joint_recon else np.copy(ref_probe).astype(cdtype)
 
     # ePIE reconstruction
-    start_time = time.time()
+    # start_time = time.time()
     print('ePIE recon starts ...')
     for i in range(num_iter):
-        random.shuffle(seq)
+        shuffle(seq)
         for j in seq:
             crd0, crd1, crd2, crd3 = patch_bounds[j, 0], patch_bounds[j, 1], patch_bounds[j, 2], patch_bounds[j, 3]
             projected_img = np.copy(est_obj[crd0:crd1, crd2:crd3])
@@ -81,9 +87,12 @@ def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, re
         est_meas = np.abs(compute_ft(est_probe * est_patch))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-    # calculate time consumption
-    print('Time consumption of {}:'.format(approach), time.time() - start_time)
-    
+        if (i+1) % 10 == 0:
+            print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
+
+    # # calculate time consumption
+    # print('Time consumption of {}:'.format(approach), time.time() - start_time)
+
     # save recon results
     if save_dir is not None:
         save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
@@ -97,6 +106,7 @@ def epie_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, re
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
+    print('{} recon completed.'.format(approach))
     keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
     vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
     output = dict(zip(keys, vals))

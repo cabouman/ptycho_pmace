@@ -1,22 +1,52 @@
+import time, os
 from utils.utils import *
+from utils.nrmse import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 
 
-def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
+class PMACE():
+    """This class is a decorator that can be used to prepare a function before it is called.
+
+    Args:
+        func (function): The function to be decorated.
+        *args: Positional arguments to be passed to the decorated function.
+        **kwargs: Keyword arguments to be passed to the decorated function.
     """
-    The weighted proximal map operator F to revise estiamtes of complex patches and probe.
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs   
+        
+    def __call__(self):
+        def wrapper(*args, **kwargs):
+            print('Preparing function ...')
+            return_val = self.func(*args, **kwargs)
+            return return_val
+        
+        return wrapper(*self.args, **self.kwargs)
+    
+    
+def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
+    r"""Data-fitting operator.
+
+    The weighted proximal map operator :math:`F` is a stack of data-fitting agents,
+    which revises estiamtes of complex patches or probe.
+
     Args:
         cur_est: current estimate of projected images or complex probe.
         joint_est: current estimate of complex probe or projected images.
         y_meas: pre-processed ptychographic measurements.
         data_fit_prm: prm/(1-prm) denotes noise-to-signal ratio of data.
-    Return:
+
+    Returns:
         New estimates of projected image patches or complex probe.
     """
-    # DFT{D * P_j * v}
+    # DFT
     f = compute_ft(cur_est * joint_est)
-    # IDFT{y * DFT{D * P_j * v} / | DFT{D * P_j * v} |}
+    
+    # IDFT
     inv_f = compute_ift(y_meas * np.exp(1j * np.angle(f)))
+    
     # take weighted average of current estimate and closest data-fitting point
     output = (1 - data_fit_prm) * cur_est + data_fit_prm * divide_cmplx_numbers(inv_f, joint_est)
 
@@ -24,9 +54,11 @@ def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
 
 
 def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1, blk_idx=None):
-    """
-    The consensus operator G takes weighted average of projections and 
-    reallocates the consensus results.
+    r"""Consensus operator.
+
+    The consensus operator :math:`G` takes weighted average of projections and 
+    reallocates the results.
+    
     Args:
         patch: current estimate of image patches.
         patch_bounds: scan coordinates of projections.
@@ -35,7 +67,8 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
         add_reg: option to apply denoiser.
         bm3d_psd: psd of complex bm3d denoising.
         blk_idx: pre-defines region for applying denoisers.
-    Return:
+        
+    Returns:
         new estimate of projected images.
     """
     # take weighted average of input patches
@@ -45,23 +78,130 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
     if add_reg:
         if blk_idx is None:
             blk_idx = [0, img_sz[0], 0, img_sz[1]]
+        # specify region
         tmp_img = cmplx_img[blk_idx[0]: blk_idx[1], blk_idx[2]: blk_idx[3]]
         # apply complex bm3d
         denoised_img = bm4d(tmp_img, bm3d_psd, profile=BM4DProfileBM3DComplex())[:, :, 0]
         cmplx_img[blk_idx[0]: blk_idx[1], blk_idx[2]: blk_idx[3]] = denoised_img
 
-    # reallocate consensus result
+    # reallocate result
     new_patch = img2patch(cmplx_img, patch_bounds, patch.shape)
 
     return cmplx_img, new_patch
 
 
+            
+def search_offset(img, prb, patch_crd, given_meas):
+    """
+    The function to try the offset that matches current estimate with measurements.
+    
+    Args:
+        img: current estimate of full-sized images.
+        prb: current estimate of complex probe.
+        patch_crd: current coordinates that describes the scan position.
+        data_fit_prm: pre-processed ptychographic measurements.
+        
+    Returns:
+        offset along x-axis, offset along y-axis. 
+    """
+    patch_bound = np.copy(patch_crd)
+    meas = np.copy(given_meas)
+    est_obj = np.copy(img)
+    est_probe = np.copy(prb)
+
+    x_offset = [-1, 0, 1]
+    y_offset = [-1, 0, 1]
+    # x_offset = [0]
+    # y_offset = [0]
+    offsets = product(x_offset, y_offset)
+    offset_ls = []
+    err_ls = []
+    for offset in offsets:
+        curr_offset = np.asarray(offset)
+        offset_ls.append(curr_offset)
+        shifted_patch, shifted_patch_crds = shift_position(patch_bound, curr_offset, est_obj)
+        tmp_meas = np.abs(est_probe * shifted_patch)
+        shift_err = np.linalg.norm(meas - phase_norm(np.copy(tmp_meas), meas))
+        err_ls.append(shift_err)
+    idx = np.array(err_ls).argmin()
+
+    return offset_ls[idx]
+
+
+def shift_position(img, patch_bound, offset=[0, 0]):
+    """
+    The function to shift the scan position and extract new patch from complex image. 
+    
+    Args:
+        img: current estimate of full-sized images.
+        patch_bound: current coordinates that describes the scan position of a patch.
+        offset: amount of shifting current patch.
+        
+    Return:
+        shifted patch, coordinates of the shifted patch.   
+    """
+    given_offset = np.copy(offset)
+    est_obj = np.copy(img)
+    patch_crd = np.copy(patch_bound)
+
+    x_offset, y_offset = given_offset[0], given_offset[1]
+    crd0, crd1, crd2, crd3 = patch_crd[0], patch_crd[1], patch_crd[2], patch_crd[3]
+    patch_width, patch_height = patch_crd[1] - patch_crd[0], patch_crd[3] - patch_crd[2]
+
+    if crd0 + x_offset < 0:
+        shifted_crd0, shifted_crd1 = 0, patch_width
+    elif crd1 + x_offset > est_obj.shape[0]:
+        shifted_crd0, shifted_crd1 = est_obj.shape[0] - patch_width, est_obj.shape[0]
+    else:
+        shifted_crd0, shifted_crd1 = np.max([0, crd0 + x_offset]), np.min([crd1 + x_offset, est_obj.shape[0]])
+
+    if crd2 + y_offset < 0:
+        shifted_crd2, shifted_crd3 = 0, patch_height
+    elif crd3 + y_offset > est_obj.shape[1]:
+        shifted_crd2, shifted_crd3 = est_obj.shape[1] - patch_height, est_obj.shape[1]
+    else:
+        shifted_crd2, shifted_crd3 = np.max([0, crd2 + y_offset]), np.min([crd3 + y_offset, est_obj.shape[1]])
+        
+    output_patch = img[shifted_crd0:shifted_crd1, shifted_crd2:shifted_crd3]
+    output_crds = [shifted_crd0, shifted_crd1, shifted_crd2, shifted_crd3]
+        
+    return output_patch, output_crds
+
+
+def data_fit_op(cur_est, joint_est, y_meas, data_fit_prm):
+    """Data-fitting point.
+    
+    The function calculates the closest data fitting point given measurement and current estimate.
+    
+    Args:
+        cur_est: current estimate of projected images or complex probe.
+        joint_est: current estimate of complex probe or projected images.
+        y_meas: pre-processed ptychographic measurements.
+        data_fit_prm: prm/(1-prm) denotes noise-to-signal ratio of data.
+        
+    Returns:
+        data fitting point.  
+    """
+    ## TODO: Merge data-fit-op with prox-map-op
+    # DFT{D * P_j * v}
+    f = compute_ft(cur_est * joint_est)
+    # IDFT{y * DFT{D * P_j * v} / | DFT{D * P_j * v} |}
+    inv_f = compute_ift(y_meas * np.exp(1j * np.angle(f)))
+    # calculate closest data-fitting point
+    output = divide_cmplx_numbers(inv_f, joint_est)
+
+    return output
+
+
 def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
-                rho=0.5, probe_exp=1.5, obj_exp=0.5, add_reg=False, sigma=0.02):
-    """
+                rho=0.5, probe_exp=1.5, obj_exp=0, add_reg=False, sigma=0.02,
+                position_correction=False, add_mode=None, gamma=3):
+    """Projected Multi-Agent Consensus Equilibrium.
+    
     Function to perform PMACE reconstruction on ptychographic data.
+    
     Args:
         y_meas: pre-processed measurements (diffraction patterns / intensity data).
         patch_bounds: scan coordinates of projections.
@@ -80,7 +220,11 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         obj_exp: exponent of image weighting in consensus calculation of probe estimate.
         add_reg: option to apply denoiser.
         sigma: denoising parameter.
-    Return:
+        position_correction: option to refine scan positions.
+        add_mode: the index of reconstruction iterations to add new probe modes.
+        gamma: power parameter.
+        
+    Returns:
         Reconstructed complex images and NRMSE between reconstructions and reference images.
     """
     approach = 'reg-PMACE' if add_reg else 'PMACE'
@@ -112,21 +256,48 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
 
     # determine the area for applying denoiser
-    denoising_blk = patch2img(np.ones_like(y_meas), patch_bounds, init_obj.shape)
+    denoising_blk = recon_win
     dn_idx = np.nonzero(denoising_blk)
-    crd0, crd1 = np.max([0, np.amin(dn_idx[0])]), np.min([np.amax(dn_idx[0])+1, est_obj.shape[0]])
-    crd2, crd3 = np.max([0, np.amin(dn_idx[1])]), np.min([np.amax(dn_idx[1])+1, est_obj.shape[1]])
+    crd0, crd1 = np.max([0, np.amin(dn_idx[0])]), np.min([np.amax(dn_idx[0]) + 1, est_obj.shape[0]])
+    crd2, crd3 = np.max([0, np.amin(dn_idx[1])]), np.min([np.amax(dn_idx[1]) + 1, est_obj.shape[1]])
     blk_idx = [crd0, crd1, crd2, crd3]
 
-    start_time = time.time()
+    # To incorporate multi probe modes
+    probe_modes = np.expand_dims(np.copy(est_probe), axis=0)  # [num_mode, mode_w, mode_h]
+    y_intsty = y_meas ** 2
+    probe_dict = {0: new_probe_arr}
+
+    # start_time = time.time()
     print('{} recon starts ...'.format(approach))
     # PMACE reconstruction
     for i in range(num_iter):
-        # w <- F(v; w)
-        cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
+        # # w <- F(v; w)
+        # cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
+
+        # data-fitting step
+        est_intsty = [np.abs(compute_ft(np.copy(tmp_mode) * new_patch)) ** 2 for tmp_mode in probe_modes]
+        sum_intsty = np.sum(est_intsty, axis=0)
+        
+        engy_idx = [np.linalg.norm(tmp_mode) ** gamma for tmp_mode in probe_modes]
+        engy_idx = engy_idx / np.sum(engy_idx, axis=0)
+        tmp_patch = np.zeros_like(new_patch, dtype=cdtype)
+        for mode_idx, cur_mode in enumerate(probe_modes):
+            # # for sanity check with single probe mode
+            # res_meas = y_meas
+            # clip-to-zero strategy
+            res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]).clip(0, None))
+            # # complex sqrt
+            # res_meas = np.emath.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]))
+            # w <- \sum_k F_{j, k}(v; w)
+            tmp_patch += data_fit_op(new_patch, cur_mode, res_meas, obj_data_fit_prm) * engy_idx[mode_idx]
+        # w <- \sum_k F_{j, k}(v; w) / M_p
+        cur_patch = (1 - obj_data_fit_prm) * new_patch + obj_data_fit_prm * tmp_patch
+
         # z <- G(2w - v)
-        est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds, img_wgt=image_weight, 
+        est_obj, consens_patch = consens_op((2 * cur_patch - new_patch) * patch_weight, patch_bounds,
+                                            img_wgt=image_weight,
                                             img_sz=image_sz, add_reg=add_reg, bm3d_psd=sigma, blk_idx=blk_idx)
+
         # v <- v + 2 \rho (z - w)
         new_patch = new_patch + 2 * rho * (consens_patch - cur_patch)
         # obtain estimate of complex object
@@ -135,44 +306,86 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
         if joint_recon:
             # calculate probe weights
+            # TODO: modify consensus operator to take average of probes
             probe_arr_weight = np.abs(consens_patch) ** obj_exp
             probe_weight = np.sum(probe_arr_weight, 0)
-            # w <- F(v; w)
-            cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, y_meas, probe_data_fit_prm)
-            # z <- G(2w - v)
-            consens_probe = np.sum((2 * cur_probe_arr - new_probe_arr) * probe_arr_weight, 0) / probe_weight
-            # v <- v + 2 \rho (z - w)
-            new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
+
+            est_intsty = [np.abs(compute_ft(tmp_mode * consens_patch)) ** 2 for tmp_mode in probe_modes]
+            sum_intsty = np.sum(est_intsty, axis=0)
+            for mode_idx, cur_mode in enumerate(probe_modes):
+                # # w <- F(v; w)
+                # cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, y_meas, probe_data_fit_prm)
+
+                # # for sanity check
+                # res_meas = y_meas
+                # clip-to-zero strategy
+                res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]).clip(0, None))
+                # # complex sqrt
+                # res_meas = np.emath.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]))
+                # w <- \sum_k F_{j, k}(v; w)
+                # new_probe_arr = np.asarray([np.copy(cur_mode)] * len(y_meas))
+                new_probe_arr = probe_dict[mode_idx]
+                cur_probe_arr = prox_map_op(new_probe_arr, consens_patch, res_meas, probe_data_fit_prm)
+
+                # z <- G(2w - v)
+                consens_probe = np.sum((2 * cur_probe_arr - new_probe_arr) * probe_arr_weight, 0) / probe_weight
+                # v <- v + 2 \rho (z - w)
+                new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
+
+                # update probe modes
+                # probe_modes[mode_idx] = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
+                probe_modes[mode_idx] = consens_probe
+                probe_dict[mode_idx] = new_probe_arr
+
             # update image weights
-            patch_weight = np.abs(consens_probe) ** probe_exp
+            patch_weight = np.sum(np.abs(probe_modes) ** probe_exp, axis=0)
             image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
             # obtain estiamte of complex probe
-            est_probe = np.sum(new_probe_arr * probe_arr_weight, 0) / probe_weight
+            est_probe = probe_modes[0]
 
+            if add_mode:
+                if i + 1 in add_mode:
+                    # est_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
+                    est_intsty = [np.abs(compute_ft(tmp_mode * consens_patch)) ** 2 for tmp_mode in probe_modes]
+                    sum_intsty = np.sum(est_intsty, axis=0)
+                    # clip-to-zero strategy
+                    res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty).clip(0, None))
+                    # complex sqrt
+                    # new_mode = np.average(divide_cmplx_numbers(compute_ift(res_meas), est_patch), axis=0)
+                    # TODO: consen_patch -> new_patch
+                    var_ptobe = np.asarray(divide_cmplx_numbers(compute_ift(res_meas), new_patch))
+                    probe_dict[len(probe_modes)] = np.asarray(divide_cmplx_numbers(compute_ift(res_meas), new_patch))
+                    new_mode = np.average(divide_cmplx_numbers(compute_ift(res_meas), new_patch), axis=0)
+                    probe_modes = np.concatenate((probe_modes, np.expand_dims(np.copy(new_mode), axis=0)), axis=0)
+                    
         # phase normalization and scale image to minimize the intensity difference
+        # TODO: compare probe modes with gt probe
         if ref_obj is not None:
             revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
             err_obj = compute_nrmse(revy_obj * recon_win, ref_obj * recon_win, cstr=recon_win)
             nrmse_obj.append(err_obj)
         else:
-            revy_obj = est_obj 
-        if joint_recon:
-            if ref_probe is not None:
-                revy_probe = phase_norm(np.copy(est_probe), ref_probe)
-                err_probe = compute_nrmse(revy_probe, ref_probe)
-                nrmse_probe.append(err_probe)
-            else:
-                revy_probe = est_probe
-        else:
-            revy_probe = est_probe
+            revy_obj = est_obj
+        # if joint_recon:
+        #     if ref_probe is not None:
+        #         revy_probe = phase_norm(np.copy(est_probe), ref_probe)
+        #         err_probe = compute_nrmse(revy_probe, ref_probe)
+        #         nrmse_probe.append(err_probe)
+        #     else:
+        #         revy_probe = est_probe
+        # else:
+        #     revy_probe = est_probe
 
         # calculate error in measurement domain
         est_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
-        est_meas = np.abs(compute_ft(est_probe * est_patch))
+        est_meas = np.sum([np.abs(compute_ft(tmp_mode * consens_patch)) for tmp_mode in probe_modes], axis=0)
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-    # calculate time consumption
-    print('Time consumption of {}:'.format(approach), time.time() - start_time)
+        if (i+1) % 10 == 0:
+            print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
+
+    # # calculate time consumption
+    # print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
     # save recon results
     if save_dir is not None:
@@ -182,13 +395,19 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         if nrmse_meas:
             save_array(nrmse_meas, save_dir + 'nrmse_meas_' + str(nrmse_meas[-1]))
         if joint_recon:
-            save_tiff(est_probe, save_dir + 'probe_est_iter_{}.tiff'.format(i + 1))
+            for mode_idx, cur_mode in enumerate(probe_modes):
+                save_tiff(est_probe, save_dir + 'probe_est_iter_{}_mode_{}.tiff'.format(i + 1, mode_idx))
             if nrmse_probe:
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
+    print('{} recon completed.'.format(approach))
     keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
-    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
+    # vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
+    vals = [revy_obj, probe_modes, nrmse_obj, nrmse_probe, nrmse_meas]
     output = dict(zip(keys, vals))
 
     return output
+    
+
+

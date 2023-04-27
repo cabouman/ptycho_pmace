@@ -1,26 +1,33 @@
+import time
 from utils.utils import *
+from utils.nrmse import *
 
 
 def wf_obj_func(cur_est, probe, y_meas, patch_bounds, discretized_sys_mat, prm=1):
-    """
+    """Object update function.
+    
     Function to revise estimate of complex object using WF.
+    
     Args:
         cur_est: current estimate of complex object. 
         probe: complex probe. 
         y_meas: pre-processed measurements.
         patch_bounds: scan coordinates of projections.
         discretized_sys_mat: the eigen value is used to obtain step size.
-        prm: prm is 1 when FT is orthonormal.
-    Return:
+        prm: val = 1 when FT is orthonormal.
+        
+    Returns:
         revised estimate of complex object.
     """
     # take projection of image
     patch = img2patch(cur_est, patch_bounds, y_meas.shape)
-    # Ax = FT{D*P_j*v}
-    f = compute_ft(patch * probe)
-    # Ax - y * Ax / |Ax| = - FT{D * P_j * v} - y * FT{D * P_j * v} / |FT{D * P_j * v}|
-    # A^(H){```} = P^t D^* IFFT{```}
-    inv_f = compute_ift(f - y_meas * np.exp(1j * np.angle(f)))
+    
+    # FT
+    f_tmp = compute_ft(patch * probe)
+    
+    # IFT
+    inv_f = compute_ift(f_tmp - y_meas * np.exp(1j * np.angle(f_tmp)))
+    
     # back projection
     output = cur_est - patch2img(inv_f * np.conj(probe), patch_bounds, cur_est.shape) / np.amax(prm * discretized_sys_mat)
     
@@ -28,23 +35,27 @@ def wf_obj_func(cur_est, probe, y_meas, patch_bounds, discretized_sys_mat, prm=1
 
 
 def wf_probe_func(cur_est, img_patch, y_meas, discretized_sys_mat, prm=1):
-    """
+    """Probe update function.
+    
     Function to revise estimate of complex probe using WF.
+    
     Args:
         cur_est: current estimate of complex probe.
         img_patch: projected image patches.
         y_meas: pre-processed measurements.
         discretized_sys_mat: the eigen value is used to obtain step size for probe function.
-        prm: prm = 1 if FT is orthonormal.
-    Return:
+        prm: val = 1 if FT is orthonormal.
+        
+    Returns:
         new estimate of complex probe.
     """
-    # Bd = FT{D*X_j*d}
-    f = compute_ft(cur_est * img_patch)
-    # Bd - y * Bd / |Bd| =  FT{D*X_j*d} - y * FT{D*X_j*d} / |FT{D*X_j*d}|
-    # B^(H){```} = (X_j)^(H) IFFT{```}
-    inv_f = compute_ift(f - y_meas * np.exp(1j * np.angle(f)))
-    # step_sz = 1/biggest eigenvalue of semi positive deifnite matrix =1/\lambda_max(A^(H)A)=1/(alpha*sum_j |D_j|^2)
+    # FT
+    f_tmp = compute_ft(cur_est * img_patch)
+    
+    # IFT
+    inv_f = compute_ift(f_tmp - y_meas * np.exp(1j * np.angle(f)))
+    
+    # step_sz = inverse of biggest eigenvalue of semi positive deifnite matrix 
     output = cur_est - np.average(np.conj(img_patch) * inv_f / np.amax(prm * discretized_sys_mat), axis=0)
     
     return output.astype(np.complex64)
@@ -52,8 +63,10 @@ def wf_probe_func(cur_est, img_patch, y_meas, discretized_sys_mat, prm=1):
 
 def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None, 
              num_iter=100, joint_recon=False, recon_win=None, save_dir=None, accel=True):
-    """
+    """Wirtinger Flow.
+    
     Function to perform WF/AWF reconstruction on ptychographic data.
+    
     Args:
         y_meas: pre-processed measurements (diffraction patterns / intensity data).
         patch_bounds: scan coordinates of projections.
@@ -66,7 +79,8 @@ def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_
         recon_win: pre-defined window for showing and comparing reconstruction results.
         save_dir: directory to save reconstruction results.
         accel: option to add Nesterov's acceleration.
-    Return:
+        
+    Returns:
         Reconstructed complex images and NRMSE between reconstructions and reference images.
     """
     cdtype = np.complex64
@@ -93,7 +107,7 @@ def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_
     obj_wgt_mat = patch2img(np.abs([est_probe] * len(y_meas)) ** 2, patch_bounds, est_obj.shape)
 
     # WF reconstruction
-    start_time = time.time()
+    # start_time = time.time()
     print('{} recon starts ...'.format(approach))
     for i in range(num_iter):
         if accel:
@@ -138,8 +152,11 @@ def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_
         est_meas = np.abs(compute_ft(est_probe * est_patch))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-    # calculate time consumption
-    print('Time consumption of {}:'.format(approach), time.time() - start_time)
+        if (i+1) % 10 == 0:
+            print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
+
+    # # calculate time consumption
+    # print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
     # save recon results
     if save_dir is not None:
@@ -154,6 +171,7 @@ def wf_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_
                 save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
 
     # return recon results
+    print('{} recon completed.'.format(approach))
     keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
     vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
     output = dict(zip(keys, vals))
