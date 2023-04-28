@@ -2,7 +2,7 @@ import demo_utils
 import argparse, yaml
 import time
 from utils.utils import *
-from ptycho.oo_pmace import *
+from ptycho.pmace import *
 
 
 '''
