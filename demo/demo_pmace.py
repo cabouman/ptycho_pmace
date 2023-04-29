@@ -47,7 +47,7 @@ def main():
     window_coords = config['data']['window_coords']
     save_dir = config['recon']['out_dir']
     
-    # download dataset. The dataset path will be later used to define path to NSI files.
+    # download dataset. 
     dataset_path = demo_utils.download_and_extract(dataset_url, dataset_dir)
 
     # check directory
