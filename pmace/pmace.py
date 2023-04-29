@@ -1,4 +1,5 @@
 import time, os
+from tqdm import tqdm
 from utils.utils import *
 from utils.nrmse import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
@@ -270,7 +271,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     # start_time = time.time()
     print('{} recon starts ...'.format(approach))
     # PMACE reconstruction
-    for i in range(num_iter):
+    for i in tqdm(range(num_iter)):
         # # w <- F(v; w)
         # cur_patch = prox_map_op(new_patch, consens_probe, y_meas, obj_data_fit_prm)
 
@@ -381,8 +382,6 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         est_meas = np.sum([np.abs(compute_ft(tmp_mode * consens_patch)) for tmp_mode in probe_modes], axis=0)
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
 
-        if (i+1) % 10 == 0:
-            print('Finished {:d} of {:d} iterations.'.format(i+1, num_iter))
 
     # # calculate time consumption
     # print('Time consumption of {}:'.format(approach), time.time() - start_time)
