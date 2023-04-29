@@ -36,7 +36,7 @@ def main():
     with open(args.config_dir, 'r') as f:
         config = yaml.safe_load(f)
 
-    # url to NSI dataset.
+    # url to dataset.
     dataset_url = config['dataset']['download_url']
     # destination path to download and extract the phantom and NN weight files.
     dataset_dir = config['dataset']['save_dir']  
