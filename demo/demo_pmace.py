@@ -48,7 +48,7 @@ def main():
     save_dir = config['recon']['out_dir']
     
     # download dataset. 
-    dataset_path = demo_utils.download_and_extract(dataset_url, dataset_dir)
+    dataset_path = download_and_extract(dataset_url, dataset_dir)
 
     # check directory
     print("Creating output directory '%s' ..." % save_dir)

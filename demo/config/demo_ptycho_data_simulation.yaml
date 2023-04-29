@@ -1,6 +1,6 @@
 data:
-  obj_dir: ../data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_image.tiff
-  probe_dir: ../data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_probe.tiff
+  obj_dir: ../data/PMACE_demo_data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_image.tiff
+  probe_dir: ../data/PMACE_demo_data/synthetic_data/SyntheticImg_data/ground_truth_img/SIM-generating_probe.tiff
   num_meas: 64
   probe_spacing: 100
   max_scan_loc_offset: 5
