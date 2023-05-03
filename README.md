@@ -53,7 +53,7 @@ This python package implements PMACE approach in python.
 		pip install -r requirements.txt
 		```
 
-	 - 2.2.3 Install the gmcluster package:
+	 - 2.2.3 Install the package:
 
 		```console
 		pip install .
