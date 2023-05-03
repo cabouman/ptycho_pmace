@@ -27,8 +27,8 @@ def setup(app):
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'ptycho_pmace'
-copyright = '2023, Charles Bouman'
-author = 'Computational Imaging Group'
+copyright = '2023, Ptycho PMACE Developers'
+author = 'Ptycho PMACE Developers'
 
 # The full version, including alpha/beta/rc tags
 release = '0.1'
@@ -66,7 +66,7 @@ templates_path = ['../_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['../_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
+exclude_patterns = ['../_build', '_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
