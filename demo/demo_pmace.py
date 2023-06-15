@@ -87,22 +87,18 @@ def main():
     num_iter = config['recon']['num_iter']
     joint_recon = config['recon']['joint_recon']
     alpha = config['recon']['data_fit_param']
-    rho = config['recon']['rho']
-    probe_exp = config['recon']['probe_exp']
-    # sigma = config['recon']['denoising_param']
     fig_args = dict(display_win=recon_win, save_dir=save_dir)
-
+                    
     # PMACE recon
     pmace_obj = PMACE(pmace_recon, y_meas, patch_crds, init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
-                      recon_win=recon_win, save_dir=save_dir, probe_exp=probe_exp, num_iter=num_iter, 
-                      joint_recon=joint_recon, obj_data_fit_prm=alpha, rho=rho, add_reg=False)
+                      num_iter=num_iter, obj_data_fit_prm=alpha, recon_win=recon_win, save_dir=save_dir)
     pmace_result = pmace_obj()
     demo_utils.plot_synthetic_img(pmace_result['object'], img_title='PMACE', **fig_args)
     
     # # recon with regularization
     # reg_pmace_obj = PMACE(pmace_recon, y_meas, patch_crds, init_obj, ref_obj=ref_obj, ref_probe=ref_probe, 
-    #                       recon_win=recon_win, save_dir=save_dir, probe_exp=probe_exp, num_iter=num_iter, 
-    #                       joint_recon=joint_recon, obj_data_fit_prm=alpha, rho=rho, add_reg=True, sigma=sigma)
+    #                       recon_win=recon_win, save_dir=save_dir, num_iter=num_iter, 
+    #                       obj_data_fit_prm=alpha, add_reg=True, sigma=sigma)
     # reg_pmace_result = reg_pmace_obj()
     # demo_utils.plot_synthetic_img(reg_pmace_result['object'], img_title='reg-PMACE', **fig_args)
     
