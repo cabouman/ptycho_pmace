@@ -215,7 +215,7 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
     # with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
     with pymp.Parallel(8) as p:
-        for idx in p.range(len(cur_est)):
+        for idx in p.iterate(p.range(len(cur_est))):
             output[idx] = (1 - data_fit_prm) * cur_est[idx]
             if (diff_intsty is not None) and (est_intsty is not None) and (mode_energy_coeff is not None): 
                 for mode_idx, cur_mode in enumerate(probe_modes):
@@ -225,7 +225,7 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
                 data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
                 output[idx] += data_fit_prm * data_fit_pt
     # print(time.time() - start_time)
-    
+       
     # # with parallelism (parallel structure 2)
     # start_time = time.time()
     # output = pymp.shared.array(cur_est.shape, dtype='cfloat')
@@ -258,8 +258,7 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
     #         # w <- \sum_k F_{j, k}(v; w)
     #         data_fit_pt += mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est, cur_mode, res_meas)
     # else:
-    #     data_fit_pt = get_data_fit_pt(cur_est, joint_est[0], y_meas) 
-    #     
+    #     data_fit_pt = get_data_fit_pt(cur_est, joint_est[0], y_meas)
     # # take weighted average of current estimate and closest data-fitting point
     # output = (1 - data_fit_prm) * cur_est + data_fit_prm * data_fit_pt
     # print(time.time() - start_time)
@@ -297,7 +296,7 @@ def probe_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm):
     # start_time = time.time()    
     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
     with pymp.Parallel(8) as p:
-        for idx in p.range(len(cur_est)):
+        for idx in p.iterate(p.range(len(cur_est))):
             data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[idx], y_meas[idx])
             output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
     # print(time.time() - start_time)
