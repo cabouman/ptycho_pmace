@@ -564,3 +564,60 @@ def query_yes_no(question, default="n"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
     return
+
+
+def find_center_offset(cmplx_img):
+    """Find unknown center of symmetric pattern in image.
+    
+    Args:
+        cmplx_img: image with symmetric pattern (such as complex-valued probe function).
+        
+    Returns:
+        offset between true image center and symmetric pattern center.
+    """
+    # find the center of given image
+    c_0, c_1 = int(np.shape(cmplx_img)[0] / 2), int(np.shape(cmplx_img)[1] / 2)
+    
+    # calculate peak and mean value of magnitude image
+    mag_img = np.abs(cmplx_img)
+    peak_mag, mean_mag = np.amax(mag_img), np.mean(mag_img)
+    
+    # find group of points above the mean value
+    pts = np.asarray(list(zip(*np.where(np.logical_and(mag_img >= mean_mag, mag_img <= peak_mag)))))
+    
+    # find unknown shifted center by averaging the group of points
+    curr_center = np.mean(pts, axis=0)
+    
+    # compute the offset between unknown shifted center and true center of image
+    center_offset = [int(c_0 - np.around(curr_center[0])), int(c_1 - np.around(curr_center[1]))]
+
+    return center_offset
+
+
+def correct_img_center(shifted_img, ref_img=None):
+    """Shift symmetric pattern to center of image. 
+    
+    Args:
+        shifted_img: image with unknown offsets.
+        ref_img: reference image for finding the unknown offsets.
+        
+    Returns:
+        corrected image with proper center location.
+    """
+    # check reference image
+    if ref_img is None:
+        ref_img = np.copy(shifted_img)
+        
+    # ensure the input image shape matches with reference image
+    try:
+        shifted_img.shape == ref_img.shape
+    except:
+        print('Error: image shapes don\'t match')
+        
+    # compute center offset using reference image
+    offset = find_center_offset(ref_img)
+    
+    # shift image back to correct location
+    output = np.roll(shifted_img, (offset[0], offset[1]), axis=(0, 1))
+
+    return output
