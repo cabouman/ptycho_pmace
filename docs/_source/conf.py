@@ -11,7 +11,8 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+import sphinx_rtd_theme
+
 sys.path.insert(0, os.path.abspath('../..'))
 
 def skip(app, what, name, obj, would_skip, options):
@@ -22,6 +23,7 @@ def skip(app, what, name, obj, would_skip, options):
 
 def setup(app):
     app.connect("autodoc-skip-member", skip)
+
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -89,16 +91,17 @@ napoleon_include_special_with_doc = False
 napoleon_use_admonition_for_examples = False
 napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
-napoleon_use_ivar = True
+napoleon_use_ivar = False
 napoleon_use_param = False
 napoleon_use_rtype = False
+# napoleon_custom_sections = [('Returns', 'params_style')]
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-import sphinx_rtd_theme
+# html_theme = 'bizstyle'
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
@@ -119,8 +122,9 @@ html_theme_options = {
 }
 
 # # Output file base name for HTML help builder.
-# htmlhelp_basename = project + 'doc'
+htmlhelp_basename = project + 'doc'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
+# html_static_path = ['_static']
 html_static_path = []
