@@ -1,6 +1,6 @@
 # Include requirements for the docs
 sphinx-rtd-theme~=0.5.1
-sphinx~=6.2.1
+sphinx~=5.3.0
 sphinxcontrib-bibtex==1.0
 ruamel.yaml~=0.16.12
 psutil~=5.8.0
