@@ -210,38 +210,38 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
     Returns:
         New estimates of projected image patches or complex probe.
     """
-    # with parallelism (parallel structure 1)
+#     # with parallelism (parallel structure 1)
+#     # start_time = time.time()
+#     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
+#     with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
+#     # with pymp.Parallel(8) as p:
+#         for idx in p.range(len(cur_est)):
+#             output[idx] = (1 - data_fit_prm) * cur_est[idx]
+#             if len(joint_est) > 1:
+#                 for mode_idx, cur_mode in enumerate(joint_est):
+#                     res_meas = np.sqrt(np.asarray(diff_intsty[idx] + est_intsty[mode_idx][idx]).clip(0, None))
+#                     output[idx] += data_fit_prm * mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est[idx], cur_mode, res_meas)
+#             else:
+#                 data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
+#                 output[idx] += data_fit_prm * data_fit_pt
+#     # print(time.time() - start_time)
+       
+    # with parallelism (parallel structure 2)
     # start_time = time.time()
     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
-    # with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
-    with pymp.Parallel(8) as p:
-        for idx in p.iterate(p.range(len(cur_est))):
-            output[idx] = (1 - data_fit_prm) * cur_est[idx]
-            if (diff_intsty is not None) and (est_intsty is not None) and (mode_energy_coeff is not None): 
-                for mode_idx, cur_mode in enumerate(probe_modes):
+    # multi_mode = True if len(joint_est) > 1 else False
+    if len(joint_est) > 1:
+        with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
+            for idx in p.range(len(cur_est)):
+                output[idx] = (1 - data_fit_prm) * cur_est[idx]
+                for mode_idx, cur_mode in enumerate(joint_est):
                     res_meas = np.sqrt(np.asarray(diff_intsty[idx] + est_intsty[mode_idx][idx]).clip(0, None))
-                    output[idx] += data_fit_prm * mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est[idx], cur_mode, res_meas)
-            else:
+                    output[idx] += data_fit_pt * mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est[idx], cur_mode, res_meas)
+    else:
+        with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
+            for idx in p.range(len(cur_est)):
                 data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
-                output[idx] += data_fit_prm * data_fit_pt
-    # print(time.time() - start_time)
-       
-    # # with parallelism (parallel structure 2)
-    # start_time = time.time()
-    # output = pymp.shared.array(cur_est.shape, dtype='cfloat')
-    # # multi_mode = True if len(joint_est) > 1 else False
-    # if len(joint_est) > 1:
-    #     with pymp.Parallel(4) as p:
-    #         for idx in p.range(len(cur_est)):
-    #             output[idx] = (1 - data_fit_prm) * cur_est[idx]
-    #             for mode_idx, cur_mode in enumerate(joint_est):
-    #                 res_meas = np.sqrt(np.asarray(diff_intsty[idx] + est_intsty[mode_idx][idx]).clip(0, None))
-    #                 output[idx] += data_fit_pt * mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est[idx], cur_mode, res_meas)
-    # else:
-    #     with pymp.Parallel(8) as p:
-    #         for idx in p.range(len(cur_est)):
-    #             data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
-    #             output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
+                output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
     # print(time.time() - start_time)
 
     # # no parallelism
@@ -308,7 +308,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
                 rho=0.5, probe_exp=1.5, obj_exp=0, add_reg=False, sigma=0.02,
-                position_correction=False, add_mode=None, gamma=3):
+                position_correction=False, add_mode=None, gamma=2):
     """Projected Multi-Agent Consensus Equilibrium.
     
     Function to perform PMACE reconstruction on ptychographic data.
@@ -399,7 +399,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
         # v <- v + 2 \rho (z - w)
         new_patch = new_patch + 2 * rho * (consens_patch - cur_patch)
-        
+      
         # obtain estimate of complex object
         if not add_reg:
             est_obj = patch2img(new_patch * patch_weight, patch_bounds, image_sz, image_weight)
