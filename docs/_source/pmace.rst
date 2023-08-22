@@ -23,7 +23,7 @@ pmace.pmace
 pmace.utils
 -----------
 
-.. automodule:: utils.utils
+.. automodule:: pmace.utils
    :members: gen_syn_data, load_measurement, patch2img, img2patch
    :undoc-members:
    :show-inheritance:
@@ -40,7 +40,7 @@ pmace.utils
 pmace.nrmse
 -----------
 
-.. automodule:: utils.nrmse
+.. automodule:: pmace.nrmse
    :members: compute_nrmse, pha_err, phase_norm
    :undoc-members:
    :show-inheritance:
@@ -56,7 +56,7 @@ pmace.nrmse
 pmace.display
 -------------
 
-.. automodule:: utils.display
+.. automodule:: pmace.display
    :members: plot_scan_pt, plot_nrmse, plot_cmplx_img
    :member-order: bysource
    :undoc-members:
