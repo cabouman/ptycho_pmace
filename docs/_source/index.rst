@@ -7,20 +7,20 @@ Welcome to ptycho_pmace's documentation!
 ========================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Background
 
    overview
    pub
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: User Guide
 
    install
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents
 
    modules
