@@ -1,8 +1,7 @@
-import time, os
+import time, os, pymp, psutil
 from tqdm import tqdm
-import pymp, psutil
-from utils.utils import *
-from utils.nrmse import *
+from .utils import *
+from .nrmse import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
 
 

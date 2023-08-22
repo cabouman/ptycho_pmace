@@ -1,7 +1,7 @@
 import demo_utils
 import argparse, yaml
 import time
-from utils.utils import *
+from pmace.utils import *
 from pmace.pmace import *
 
 

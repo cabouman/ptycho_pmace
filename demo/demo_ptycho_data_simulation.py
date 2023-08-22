@@ -1,6 +1,6 @@
 import argparse, yaml
 from shutil import copyfile
-from utils.utils import *
+from pmace.utils import *
 
 
 '''

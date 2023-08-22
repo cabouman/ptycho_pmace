@@ -5,4 +5,3 @@ ptycho_pmace
    :maxdepth: 2
 
    pmace
-   utils

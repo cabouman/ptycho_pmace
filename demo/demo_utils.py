@@ -1,7 +1,7 @@
 import sys, os
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.display import *
+from pmace.display import *
 
 
 def plot_synthetic_img(cmplx_img, img_title, display_win=None, save_dir=None):
