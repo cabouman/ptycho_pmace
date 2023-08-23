@@ -25,9 +25,6 @@ Welcome to ptycho_pmace's documentation!
    :caption: Contents
 
    pmace
-   utils
-   nrmse
-   display
 
 
 Indices and tables
