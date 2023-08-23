@@ -4,4 +4,7 @@ sphinx
 sphinxcontrib-bibtex
 ruamel.yaml~=0.16.12
 psutil~=5.8.0
-numpy>=1.20.1
+numpy
+pymp
+pyfftw
+matplotlib
