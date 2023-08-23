@@ -4,6 +4,7 @@ import scico.linop.optics as op
 import tifffile as tiff
 import pandas as pd
 import numpy as np
+from numpy import linalg as LA
 import multiprocessing as mp
 from scipy import signal
 from scipy.ndimage import gaussian_filter
@@ -377,9 +378,11 @@ def divide_cmplx_numbers(cmplx_num, cmplx_denom):
     Returns:
         result.
     """
-    denom_inv = np.conj(cmplx_denom) / (cmplx_denom * np.conj(cmplx_denom) + 1e-6)
+    # use epsilon to avoid divsion by zero
+    epsilon = 1e-6 * LA.norm(cmplx_num, ord='fro') / np.sqrt(cmplx_denom.size)
+    denom_inv = np.conj(cmplx_denom) / (cmplx_denom * np.conj(cmplx_denom) + epsilon)
     output = cmplx_num * denom_inv
-
+    
     return output
 
 
