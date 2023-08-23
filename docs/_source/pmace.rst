@@ -1,4 +1,4 @@
-pmace module
+pmace
 ==============
 
 
@@ -6,7 +6,7 @@ pmace.pmace
 ------------
 
 .. automodule:: pmace.pmace
-   :members: PMACE, object_data_fit_op, probe_data_fit_op, consens_op, pmace_recon
+   :members:
    :undoc-members:
    :show-inheritance:
 
