@@ -18,12 +18,16 @@ Welcome to ptycho_pmace's documentation!
    :caption: User Guide
 
    install
+   api
 
 .. toctree::
    :maxdepth: 4
    :caption: Contents
 
-   modules
+   pmace
+   utils
+   nrmse
+   display
 
 
 Indices and tables
