@@ -22,6 +22,3 @@ Primary module:
    :hidden:
 
    pmace
-   utils
-   nrmse
-   display
