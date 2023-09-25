@@ -3,6 +3,10 @@ from tqdm import tqdm
 from .utils import *
 from .nrmse import *
 from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
+import multiprocessing as mp
+from multiprocessing import Pool
+from itertools import product
+from functools import partial
 
 
 class PMACE():
@@ -52,30 +56,6 @@ def get_data_fit_pt(cur_est, joint_est, y_meas):
     return output
 
 
-# def prox_map_op(cur_est, joint_est, y_meas, data_fit_prm):
-#     r"""Data-fitting operator.
-
-#     The weighted proximal map operator :math:`F` is a stack of data-fitting agents,
-#     which revises estiamtes of complex patches or probe.
-
-#     Args:
-#         cur_est: current estimate of projected images or complex probe.
-#         joint_est: current estimate of complex probe or projected images.
-#         y_meas: pre-processed ptychographic measurements.
-#         data_fit_prm: prm/(1-prm) denotes noise-to-signal ratio of data.
-
-#     Returns:
-#         New estimates of projected image patches or complex probe.
-#     """
-#     # calculate closest data-fitting point
-#     data_fit_pt = get_data_fit_pt(cur_est, joint_est, y_meas)
-    
-#     # take weighted average of current estimate and closest data-fitting point
-#     output = (1 - data_fit_prm) * cur_est + data_fit_prm * data_fit_pt
-
-#     return output
-
-
 def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1, blk_idx=None):
     r"""Consensus operator.
 
@@ -113,82 +93,101 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
     return cmplx_img, new_patch
 
 
-            
-def search_offset(img, prb, patch_crd, given_meas):
+def forward_propagation(cmplx_img, cmplx_probe, patch_crd, curr_meas, x_ofs=0, y_ofs=0):
     """
-    The function to try the offset that matches current estimate with measurements.
+    The function forword propagates the projected image with shifted scan location and compare the result with measurement.
     
     Args:
-        img: current estimate of full-sized images.
-        prb: current estimate of complex probe.
-        patch_crd: current coordinates that describes the scan position.
-        data_fit_prm: pre-processed ptychographic measurements.
+        cmplx_img: full-sized complex tranmisttance image.
+        cmplx_probe: complex-valued probe function.
+        patch_crd: coordiantes that determines the current scan location.
+        curr_meas: current measurement associated with the patch_crd.
+        x_ofs: apply offset to scan location along horizontal axis.
+        y_ofs: apply offset to scan location along vertical axis.
         
     Returns:
-        offset along x-axis, offset along y-axis. 
+        frobenius norm between forward propagated patch and the collected measurement. 
     """
-    patch_bound = np.copy(patch_crd)
-    meas = np.copy(given_meas)
-    est_obj = np.copy(img)
-    est_probe = np.copy(prb)
+    curr_offset = [x_ofs, y_ofs]
+    shifted_patch, shifted_patch_crds = shift_position(cmplx_img, patch_crd, curr_offset)
+    tmp_meas = np.abs(compute_ft(cmplx_probe * shifted_patch))
+    # err_meas = np.linalg.norm(curr_meas - phase_norm(np.copy(tmp_meas), curr_meas))
+    err_meas = np.linalg.norm(curr_meas - tmp_meas)
+    
+    return err_meas
 
-    x_offset = [-1, 0, 1]
-    y_offset = [-1, 0, 1]
-    # x_offset = [0]
-    # y_offset = [0]
+    
+def search_offset(cmplx_img, cmplx_probe, patch_crd, curr_meas, step_sz):
+    """
+    The function searchs for the offset within a 3x3 grid, with each neighboring point being step_sz apart.
+
+    
+    Args:
+        cmplx_img: full-sized complex tranmisttance image.
+        cmplx_probe: complex-valued probe function.
+        patch_crd: coordiantes that determines the current scan location.
+        curr_meas: current measurement associated with the patch_crd.
+        step_sz: predefined value that determines the size of search grid.
+        
+    Returns:
+        [offset along x-axis, offset along y-axis]. 
+    """
+    partial_function = partial(forward_propagation, cmplx_img, cmplx_probe, patch_crd, curr_meas)
+    # TO BE MODIFIED TO 3x3 GRID
+    x_offset = [int(-step_sz*2), int(-step_sz*1.5), -step_sz, int(-step_sz*0.5), 0, int(step_sz*0.5), step_sz, int(step_sz*1.5), int(step_sz*2)]
+    y_offset = [int(-step_sz*2), int(-step_sz*1.5), -step_sz, int(-step_sz*0.5), 0, int(step_sz*0.5), step_sz, int(step_sz*1.5), int(step_sz*2)]
+    x_offset = np.asarray(x_offset)
+    y_offset = np.asarray(y_offset)
+    fval = np.zeros((1, len(x_offset)*len(y_offset)))
     offsets = product(x_offset, y_offset)
-    offset_ls = []
-    err_ls = []
-    for offset in offsets:
-        curr_offset = np.asarray(offset)
-        offset_ls.append(curr_offset)
-        shifted_patch, shifted_patch_crds = shift_position(patch_bound, curr_offset, est_obj)
-        tmp_meas = np.abs(est_probe * shifted_patch)
-        shift_err = np.linalg.norm(meas - phase_norm(np.copy(tmp_meas), meas))
-        err_ls.append(shift_err)
-    idx = np.array(err_ls).argmin()
+    with Pool(processes=mp.cpu_count()) as p:
+        fval = p.starmap(partial_function, offsets)
+        p.close()
+        p.join()
 
-    return offset_ls[idx]
+    fvmx = np.reshape(fval, [len(x_offset), len(y_offset)])
+    sidx = np.unravel_index(np.nanargmin(fvmx), fvmx.shape)
+    # print('x_offset =', x_offset[sidx[0]], 'y_offset =', y_offset[sidx[1]], 'err =', 'minimum nrmse :', fvmx[sidx])
+    # if x_offset[sidx[0]] != 0 or y_offset[sidx[1]] != 0:
+    #     print('x_offset =', x_offset[sidx[0]], 'y_offset =', y_offset[sidx[1]], 'err =', 'minimum nrmse :', fvmx[sidx])
 
+    return [x_offset[sidx[0]], y_offset[sidx[1]]]
+    
 
-def shift_position(img, patch_bound, offset=[0, 0]):
+def shift_position(cmplx_img, patch_crd, offset=[0, 0]):
     """
     The function to shift the scan position and extract new patch from complex image. 
     
     Args:
-        img: current estimate of full-sized images.
-        patch_bound: current coordinates that describes the scan position of a patch.
-        offset: amount of shifting current patch.
+        cmplx_img: current estimate of full-sized images.
+        patch_crd: current coordinates that describes the scan position of a patch.
+        offset: shift current patch by provided offset.
         
     Return:
-        shifted patch, coordinates of the shifted patch.   
-    """
-    given_offset = np.copy(offset)
-    est_obj = np.copy(img)
-    patch_crd = np.copy(patch_bound)
-
-    x_offset, y_offset = given_offset[0], given_offset[1]
+        shifted patch, and resulting coordinates.   
+    """ 
+    x_ofs, y_ofs = round(offset[0]), round(offset[1])
     crd0, crd1, crd2, crd3 = patch_crd[0], patch_crd[1], patch_crd[2], patch_crd[3]
-    patch_width, patch_height = patch_crd[1] - patch_crd[0], patch_crd[3] - patch_crd[2]
-
-    if crd0 + x_offset < 0:
-        shifted_crd0, shifted_crd1 = 0, patch_width
-    elif crd1 + x_offset > est_obj.shape[0]:
-        shifted_crd0, shifted_crd1 = est_obj.shape[0] - patch_width, est_obj.shape[0]
+    patch_w, patch_h = patch_crd[1] - patch_crd[0], patch_crd[3] - patch_crd[2]
+    
+    if crd0 + x_ofs < 0:
+        shifted_crd0, shifted_crd1 = 0, patch_w
+    elif crd1 + x_ofs > cmplx_img.shape[0]:
+        shifted_crd0, shifted_crd1 = cmplx_img.shape[0] - patch_w, cmplx_img.shape[0]
     else:
-        shifted_crd0, shifted_crd1 = np.max([0, crd0 + x_offset]), np.min([crd1 + x_offset, est_obj.shape[0]])
-
-    if crd2 + y_offset < 0:
-        shifted_crd2, shifted_crd3 = 0, patch_height
-    elif crd3 + y_offset > est_obj.shape[1]:
-        shifted_crd2, shifted_crd3 = est_obj.shape[1] - patch_height, est_obj.shape[1]
+        shifted_crd0, shifted_crd1 = np.max([0, crd0 + x_ofs]), np.min([crd1 + x_ofs, cmplx_img.shape[0]])
+    
+    if crd2 + y_ofs < 0:
+        shifted_crd2, shifted_crd3 = 0, patch_h
+    elif crd3 + y_ofs > cmplx_img.shape[1]:
+        shifted_crd2, shifted_crd3 = cmplx_img.shape[1] - patch_h, cmplx_img.shape[1]
     else:
-        shifted_crd2, shifted_crd3 = np.max([0, crd2 + y_offset]), np.min([crd3 + y_offset, est_obj.shape[1]])
-        
-    output_patch = img[shifted_crd0:shifted_crd1, shifted_crd2:shifted_crd3]
+        shifted_crd2, shifted_crd3 = np.max([0, crd2 + y_ofs]), np.min([crd3 + y_ofs, cmplx_img.shape[1]])
+    
+    output_patch = cmplx_img[shifted_crd0:shifted_crd1, shifted_crd2:shifted_crd3]
     output_crds = [shifted_crd0, shifted_crd1, shifted_crd2, shifted_crd3]
         
-    return output_patch, output_crds
+    return output_patch, output_crds 
 
 
 def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=None, est_intsty=None, mode_energy_coeff=None):
@@ -209,23 +208,6 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
     Returns:
         New estimates of projected image patches or complex probe.
     """
-#     # with parallelism (parallel structure 1)
-#     # start_time = time.time()
-#     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
-#     with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
-#     # with pymp.Parallel(8) as p:
-#         for idx in p.range(len(cur_est)):
-#             output[idx] = (1 - data_fit_prm) * cur_est[idx]
-#             if len(joint_est) > 1:
-#                 for mode_idx, cur_mode in enumerate(joint_est):
-#                     res_meas = np.sqrt(np.asarray(diff_intsty[idx] + est_intsty[mode_idx][idx]).clip(0, None))
-#                     output[idx] += data_fit_prm * mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est[idx], cur_mode, res_meas)
-#             else:
-#                 data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
-#                 output[idx] += data_fit_prm * data_fit_pt
-#     # print(time.time() - start_time)
-       
-    # with parallelism (parallel structure 2)
     # start_time = time.time()
     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
     # multi_mode = True if len(joint_est) > 1 else False
@@ -241,26 +223,6 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
             for idx in p.range(len(cur_est)):
                 data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
                 output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
-    # print(time.time() - start_time)
-
-    # # no parallelism
-    # start_time = time.time()
-    # # calculate closest data-fitting point
-    # if (diff_intsty is not None) and (est_intsty is not None) and (mode_energy_coeff is not None): 
-    #     data_fit_pt = np.zeros_like(cur_est, dtype=np.complex64)
-    #     probe_modes = np.copy(joint_est)
-    #     for mode_idx, cur_mode in enumerate(probe_modes):
-    #         # res_meas = np.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]).clip(0, None))
-    #         res_meas = np.sqrt(np.asarray(diff_intsty + est_intsty[mode_idx]).clip(0, None))
-    #         # # complex sqrt
-    #         # res_meas = np.emath.sqrt(np.asarray(y_intsty - sum_intsty + est_intsty[mode_idx]))
-    #         # w <- \sum_k F_{j, k}(v; w)
-    #         data_fit_pt += mode_energy_coeff[mode_idx] * get_data_fit_pt(cur_est, cur_mode, res_meas)
-    # else:
-    #     data_fit_pt = get_data_fit_pt(cur_est, joint_est[0], y_meas)
-    # # take weighted average of current estimate and closest data-fitting point
-    # output = (1 - data_fit_prm) * cur_est + data_fit_prm * data_fit_pt
-    # print(time.time() - start_time)
 
     return output
 
@@ -283,19 +245,11 @@ def probe_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm):
     Returns:
         New estimates of projected image patches or complex probe.
     """
-    # # no parallelism
-    # start_time = time.time()
-    # # calculate closest data-fitting point
-    # data_fit_pt = get_data_fit_pt(cur_est, joint_est, y_meas)
-    # # take weighted average of current estimate and closest data-fitting point
-    # output = (1 - data_fit_prm) * cur_est + data_fit_prm * data_fit_pt
-    # print(time.time() - start_time)
-    
-    # with parallelism
     # start_time = time.time()    
     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
     with pymp.Parallel(8) as p:
-        for idx in p.iterate(p.range(len(cur_est))):
+        # for idx in p.iterate(p.range(len(cur_est))):
+        for idx in p.range(len(cur_est)):
             data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[idx], y_meas[idx])
             output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
     # print(time.time() - start_time)
@@ -307,7 +261,8 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
                 rho=0.5, probe_exp=1.5, obj_exp=0, add_reg=False, sigma=0.02,
-                position_correction=False, add_mode=None, gamma=2):
+                scan_loc_refinement_iterations=[], scan_loc_search_step_sz=8, scan_loc_refine_step_sz=0.6, gt_scan_loc=None,
+                add_mode=None, gamma=2):
     """Projected Multi-Agent Consensus Equilibrium.
     
     Function to perform PMACE reconstruction on ptychographic data.
@@ -353,6 +308,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
     est_obj = np.asarray(init_obj, dtype=cdtype)
     cur_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
+    consens_patch = np.copy(cur_patch)
     new_patch = np.copy(cur_patch)
 
     est_probe = np.asarray(init_probe, dtype=cdtype) if joint_recon else ref_probe.astype(cdtype)
@@ -438,7 +394,44 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                     # update probe_dict and probe_modes
                     probe_dict[len(probe_modes)] = new_probe_arr
                     probe_modes = np.concatenate((probe_modes, np.expand_dims(np.copy(new_mode), axis=0)), axis=0)
-                    
+        
+        # scan location refinement
+        if i + 1 in scan_loc_refinement_iterations:
+            scan_loc = np.zeros((len(patch_bounds), 2))
+            for curr_idx in range(len(patch_bounds)):
+                # find the offset that minimizes the difference between measurement and forward propagated patch
+                offset = scan_loc_refine_step_sz * search_offset(est_obj, est_probe, patch_bounds[curr_idx], y_meas[curr_idx], step_sz=scan_loc_search_step_sz, ref_obj=ref_obj)
+                # update patch and associated coordiantes
+                new_patch[curr_idx], patch_bounds[curr_idx] = shift_position(est_obj, patch_bounds[curr_idx], offset=offset)
+                scan_loc[curr_idx, 0] = (patch_bounds[curr_idx, 2] + patch_bounds[curr_idx, 3]) / 2
+                scan_loc[curr_idx, 1] = (patch_bounds[curr_idx, 0] + patch_bounds[curr_idx, 1]) / 2
+            
+            # reinitialization
+            patch_weight = np.abs(consens_probe) ** probe_exp
+            image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
+            cur_patch = np.copy(new_patch)
+            est_obj = patch2img(new_patch * patch_weight, patch_bounds, image_sz, image_weight)
+            update step size of search grid
+            # scan_loc_search_step_sz = np.maximum(np.floor(scan_loc_search_step_sz / 2), 1)
+            # scan_loc_search_step_sz = np.maximum(1, int(scan_loc_search_step_sz / ( 1 + i / 10) ))
+            scan_loc_search_step_sz = np.maximum(1, scan_loc_search_step_sz-1)
+            
+            # # save refined scan location
+            # df = pd.DataFrame({'FCx': scan_loc[:, 0], 'FCy': scan_loc[:, 1]})
+            # df.to_csv(save_dir + 'refined_Translations_iter_{}.tsv.txt'.format(i + 1))
+            # # plot refined location
+            # fig, ax = plt.subplots()
+            # plt.imshow(np.abs(ref_obj), cmap='gray')
+            # plt.scatter(gt_scan_loc[:, 0], gt_scan_loc[:, 1], label='ground truth scan location')
+            # plt.scatter(scan_loc[:, 0], scan_loc[:, 1], label='output scan location')
+            # ax = plt.gca()
+            # plt.legend(loc='best')
+            # plt.title('scan pattern')
+            # plt.savefig(save_dir + 'refined_Translations_iter_{}.png'.format(i + 1), bbox_inches='tight', transparent=True)
+            # plt.clf()
+            # print('avg dist =', np.average(np.sqrt(np.sum((scan_loc - gt_scan_loc)**2,axis=1))))
+                
+                                       
         # phase normalization and scale image to minimize the intensity difference
         if ref_obj is not None:
             revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
