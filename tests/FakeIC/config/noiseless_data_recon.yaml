@@ -1,0 +1,11 @@
+data:
+  data_dir: /depot/bouman/users/qzhai/ptycho_pmace/data/synthetic_data/probe_loc_refinement/FakeIC_noiseless_data/probe_dist_20/
+  # window_coords: [106, 406, 106, 406]
+  window_coords: None
+recon:
+  num_iter: 100
+  joint_recon: False
+  out_dir: /depot/bouman/users/qzhai/ptycho_pmace/output/experiment/synthetic_case/FakeIC_noiseless_data/probe_dist_20/
+  object_data_fit_param: 0.8
+  probe_data_fit_param: 0.7
+  probe_exp: 1
