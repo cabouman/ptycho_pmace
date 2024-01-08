@@ -4,6 +4,7 @@ from math import *
 from pylab import *
 
 
+<<<<<<< HEAD
 def compute_mse(input_img, ref_img):
     """Compute Mean Squared Error (MSE) between two images.
 
@@ -49,6 +50,45 @@ def compute_nrmse(input_img, ref_img, cstr=None):
     nrmse = rmse / np.sqrt((np.sum(np.abs(ref_rgn) ** 2)) / num_px)
 
     return nrmse
+=======
+def compute_nrmse(img, ref_img, cstr=None):
+    """Compute Normalized Root-Mean-Square-Error (NRMSE) between two images.
+
+    This function calculates the NRMSE between the provided image and reference image.
+
+    Args:
+        img (numpy.ndarray): Complex-valued image for comparison.
+        ref_img (numpy.ndarray): Reference image for comparison.
+        cstr (numpy.ndarray, optional): Area for comparison. If provided, only this region will be considered.
+
+    Returns:
+        float: NRMSE between two images.
+    """
+    # Assign a region for calculating the error
+    img_rgn = img if (cstr is None) else cstr * img
+    ref_rgn = ref_img if (cstr is None) else cstr * ref_img
+
+    # Compute Mean Square Error (MSE) for all elements
+    mse = np.mean(np.abs(img_rgn - ref_rgn) ** 2)
+
+    # Compute the NRMSE
+    num_px = np.sum(np.abs(cstr)) if (cstr is not None) else img.size
+    rmse = np.sqrt(mse)
+    nrmse = rmse / np.sqrt(np.mean(np.abs(ref_rgn) ** 2))
+
+    return nrmse
+
+#     # Assign a region for calculating the error
+#     img_adj = img if (cstr is None) else cstr * img
+#     ref_img_adj = ref_img if (cstr is None) else cstr * ref_img
+
+#     # Compute Mean Square Error (MSE)
+#     num_px = float(np.sum(np.abs(cstr))) if (cstr is not None) else float(img.shape[0] * img.shape[1])
+#     rmse = np.sqrt(np.sum(np.abs(img_adj - ref_img_adj) ** 2) / num_px)
+#     output = rmse / np.sqrt(np.sum(np.abs(ref_img_adj) ** 2) / num_px)
+
+#     return output
+>>>>>>> origin/scan_loc_refinement
 
 
 def pha_err(img, ref_img):

@@ -303,6 +303,7 @@ def patch2img(img_patches, patch_coords, img_sz, norm_wgt=None):
 def img2patch(full_img, patch_coords, patch_sz):
     """Extract image patches from full-sized image.
 
+<<<<<<< HEAD
     Args:
         img (numpy.ndarray): Full-sized image.
         coords (numpy.ndarray): Coordinates of projections.
@@ -347,20 +348,63 @@ def compute_ft(input_array, threads=1):
     b = np.zeros_like(a)
     fft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_FORWARD', threads=threads)
     output = np.fft.ifftshift(fft_object(), axes=(-2, -1))
+=======
+    Args:
+        img (numpy.ndarray): Full-sized image.
+        coords (numpy.ndarray): Coordinates of projections.
+        patch_sz (tuple): Size of the output patches (rows, columns).
+
+    Returns:
+        list of numpy.ndarray: Projected image patches.
+    """
+    # Initialization
+    num_patches = len(patch_coords)
+    output = []
+    
+    # Extract patches from the full image
+    for j in range(num_patches):
+        row_start, row_end, col_start, col_end = patch_coords[j]
+        patch = full_img[row_start:row_end, col_start:col_end]
+        output.append(patch)
+        
+    return np.asarray(output)
+
+
+def compute_ft(input_array):
+    """Compute the 2D Discrete Fourier Transform (DFT) of an input array.
+    
+    Args:
+        input_array (numpy.ndarray): The input 2D array for DFT computation.
+        
+    Returns:
+        numpy.ndarray: The result of the 2D DFT.
+    """
+    a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
+    b = np.fft.fft2(a, s=None, axes=(-2, -1), norm='ortho')
+    output = np.fft.ifftshift(b, axes=(-2, -1))
+>>>>>>> origin/scan_loc_refinement
     
     return output.astype(np.complex64)
 
 
+<<<<<<< HEAD
 def compute_ift(input_array, threads=1):
+=======
+def compute_ift(input_array):
+>>>>>>> origin/scan_loc_refinement
     """Compute the 2D Inverse Discrete Fourier Transform (IDFT) of an input array.
     
     Args:
         input_array (numpy.ndarray): The input 2D array for IDFT computation.
+<<<<<<< HEAD
         threads(int): number of threads for performing DFT using pyfftw.
+=======
+>>>>>>> origin/scan_loc_refinement
                 
     Returns:
         numpy.ndarray: The result of the 2D IDFT.
     """
+<<<<<<< HEAD
     # # DFT using numpy
     # a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     # b = np.fft.ifft2(a, s=None, axes=(-2, -1), norm='ortho')
@@ -375,6 +419,12 @@ def compute_ift(input_array, threads=1):
     ifft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_BACKWARD', threads=threads)
     output = np.fft.ifftshift(ifft_object(), axes=(-2, -1))
     
+=======
+    a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
+    b = np.fft.ifft2(a, s=None, axes=(-2, -1), norm='ortho')
+    output = np.fft.ifftshift(b, axes=(-2, -1))
+
+>>>>>>> origin/scan_loc_refinement
     return output.astype(np.complex64)
 
 
@@ -399,13 +449,18 @@ def scale(input_obj, out_range):
                               
 
 def divide_cmplx_numbers(cmplx_num, cmplx_denom):
+<<<<<<< HEAD
     """Perform element-wise division with complex numbers, handling division by zero.
+=======
+    """Perform division with complex numbers.
+>>>>>>> origin/scan_loc_refinement
 
     Args:
         cmplx_num (numpy.ndarray): Complex numerator.
         cmplx_denom (numpy.ndarray): Complex denominator.
 
     Returns:
+<<<<<<< HEAD
         ndarray: Result of the division.
     """
     # Use epsilon to avoid divsion by zero
@@ -414,6 +469,12 @@ def divide_cmplx_numbers(cmplx_num, cmplx_denom):
     epsilon = 1e-6 * fro_norm / np.sqrt(cmplx_denom.size)
 
     # Calculate the inverse of the denominator, considering epsilon
+=======
+        numpy.ndarray: Result of the division.
+    """
+    # Use epsilon to avoid divsion by zero
+    epsilon = 1e-6 * LA.norm(cmplx_num, ord='fro') / np.sqrt(cmplx_denom.size)
+>>>>>>> origin/scan_loc_refinement
     denom_inv = np.conj(cmplx_denom) / (cmplx_denom * np.conj(cmplx_denom) + epsilon)
 
     # Perform element-wise operation, handling division by zero
@@ -461,8 +522,13 @@ def get_proj_coords_from_data(scan_loc, y_meas):
     rounded_scan_loc = np.round(scan_loc)
     
     projection_coords = np.zeros((num_pts, 4), dtype=int)
+<<<<<<< HEAD
     projection_coords[:, 0], projection_coords[:, 1] = rounded_scan_loc[:, 1] - m // 2, rounded_scan_loc[:, 1] + m // 2
     projection_coords[:, 2], projection_coords[:, 3] = rounded_scan_loc[:, 0] - n // 2, rounded_scan_loc[:, 0] + n // 2
+=======
+    projection_coords[:, 0], projection_coords[:, 1] = rounded_scan_loc[:, 0] - m // 2, rounded_scan_loc[:, 0] + m // 2
+    projection_coords[:, 2], projection_coords[:, 3] = rounded_scan_loc[:, 1] - n // 2, rounded_scan_loc[:, 1] + n // 2
+>>>>>>> origin/scan_loc_refinement
 
     return projection_coords
 

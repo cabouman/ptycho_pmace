@@ -1,0 +1,12 @@
+data:
+  obj_dir: /depot/bouman/users/qzhai/ptycho_data/FakeIC/SIM-generating_object.tiff
+  probe_dir: /depot/bouman/users/qzhai/ptycho_data/FakeIC/SIM-generating_probe.tiff
+  num_meas: 100
+  probe_spacing: 20
+  max_scan_loc_offset: 5
+  add_noise: False
+  peak_photon_rate: 1e10
+  shot_noise_rate: 0
+  data_dir: /depot/bouman/users/qzhai/ptycho_pmace/data/synthetic_data/FakeIC_noiseless_data/
+  display: False
+

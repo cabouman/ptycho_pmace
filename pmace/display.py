@@ -7,7 +7,11 @@ def plot_scan_pt(scan_pt):
     """Plot scan points.
 
     Args:
+<<<<<<< HEAD
         scan_pt (numpy.ndarray): Array of scan points as (x, y) coordinates.
+=======
+        scan_pt (list of tuples): List of scan points as (x, y) coordinates.
+>>>>>>> origin/scan_loc_refinement
     """
     plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
     plt.title('Scan Points')
@@ -19,7 +23,11 @@ def plot_nrmse(nrmse_ls, title, label, abscissa=None, step_sz=15, fig_sz=[10, 4.
     """Plot the NRMSE (Normalized Root Mean Squared Error) versus the number of iterations.
 
     Args:
+<<<<<<< HEAD
         nrmse_ls (list or array): List of NRMSE values for each iteration or a dictionary of labels and NRMSE values.
+=======
+        nrmse_ls (list or dict): List of NRMSE values for each iteration or a dictionary of labels and NRMSE values.
+>>>>>>> origin/scan_loc_refinement
         title (str): Title for the plot.
         label (list): List containing the X and Y axis labels and the label for the legend (e.g., ['X Label', 'Y Label', 'Legend Label']).
         abscissa (list or None): X-axis values corresponding to NRMSE data. If None, it is automatically generated.
