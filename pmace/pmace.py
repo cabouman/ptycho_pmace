@@ -23,16 +23,16 @@ class PMACE():
     def __init__(self, func, *args, **kwargs):
         self.func = func
         self.args = args
-        self.kwargs = kwargs   
-        
+        self.kwargs = kwargs
+
     def __call__(self):
         def wrapper(*args, **kwargs):
             print('Preparing function ...')
             return_val = self.func(*args, **kwargs)
             return return_val
-        
+
         return wrapper(*self.args, **self.kwargs)
-    
+
 
 def get_data_fit_pt(cur_est, joint_est, y_meas):
     """Data-fitting point.
@@ -67,9 +67,9 @@ def get_data_fit_pt(cur_est, joint_est, y_meas):
 def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1, blk_idx=None):
     r"""Consensus operator.
 
-    The consensus operator :math:`G` takes weighted average of projections and 
+    The consensus operator :math:`G` takes weighted average of projections and
     reallocates the results.
-    
+
     Args:
         patch (numpy.ndarray): Current estimate of image patches.
         patch_bounds (list): Scan coordinates of projections.
@@ -77,16 +77,16 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
         img_wgt (float): Image weight.
         add_reg (bool, optional): Option to apply denoising regularization. Default is False.
         bm3d_psd (float, optional): Power spectral density (PSD) of complex BM3D denoising. Default is 0.1.
-        blk_idx (list, optional): Pre-defined region for applying denoisers. 
-    
+        blk_idx (list, optional): Pre-defined region for applying denoisers.
+
     Returns:
-        A tuple containing: 
+        A tuple containing:
             - cmplx_img (numpy.ndarray): New estimate of projected images as a complex numpy array.
             - new_patch (numpy.ndarray): New estimate of image patches.
     """
     # Take weighted average of input patches
     cmplx_img = patch2img(patch, patch_bounds, img_sz, img_wgt)
-    
+
     # add regularzation
     if add_reg:
         if blk_idx is None:
@@ -117,15 +117,15 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
         diff_intsty (list of numpy.ndarray): Difference between measured intensity data and estimated intensity value.
         est_intsty (list of numpy.ndarray): Estimated intensity.
         mode_energy_coeff (list of float): Coefficients of data-fitting points associated with each probe mode.
-    
+
     Returns:
         numpy.ndarray: New estimates of projected image patches or complex probe.
     """
     # start_time = time.time()
-    
+
     # Initialize an array for storing the output estimates
     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
-    
+
     # Check if there are multiple probe modes
     if len(joint_est) > 1:
         # Parallel processing with the number of CPU logical cores
@@ -144,10 +144,9 @@ def object_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm, diff_intsty=Non
                 # Calculate data-fitting point
                 data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[0], y_meas[idx])
                 output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
-                
+
     # print(time.time() - start_time)
-    
->>>>>>> origin/scan_loc_refinement
+
     return output
 
 
@@ -288,7 +287,7 @@ def add_probe_mode(probe_modes, projected_patches, y_intsty, probe_dict,
     probe_dict[len(probe_modes)] = np.array(new_probe_arr)
     probe_modes = np.concatenate((probe_modes, np.expand_dims(np.copy(new_probe_mode), axis=0)), axis=0)
 
-    # Scale probe_dict and probe_modes to ensure consistent probe energy 
+    # Scale probe_dict and probe_modes to ensure consistent probe energy
     # ================================================================== TODO: balance energy ratio
     num_modes = len(probe_modes)
     for mode_idx, cur_mode in enumerate(probe_modes):
@@ -367,12 +366,12 @@ def probe_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm):
 
 def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
-                obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
+                obj_data_fit_prm=0.5, probe_data_fit_prm=0.5,
                 rho=0.5, probe_exp=1.5, obj_exp=0, add_reg=False, sigma=0.02, probe_center_correction=[],
                 scan_loc_refinement_iterations=[], scan_loc_search_step_sz=2, scan_loc_refine_step_sz=1, gt_scan_loc=None,
                 add_mode=[], img_px_sz=4.52e-9, wavelength=1.24e-9, propagation_dist=1e-7, gamma=2):
     """Projected Multi-Agent Consensus Equilibrium (PMACE).
-    
+
     Args:
         y_meas (numpy.ndarray): Pre-processed measurements (diffraction patterns / intensity data).
         patch_bounds (list): Scan coordinates of projections.
@@ -397,7 +396,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         gt_scan_loc (numpy.ndarray): Ground truth scan locations.
         add_mode (list): The index of reconstruction iterations to add new probe modes.
         gamma (int): Power parameter for energy weighting.
-        
+
     Returns:
         dict: Reconstructed complex images and NRMSE between reconstructions and reference images.
             Keys:
@@ -432,7 +431,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     est_obj = np.array(init_obj, dtype=cdtype)
     new_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
     image_sz = est_obj.shape
-    
+
     # Expand the dimensions of reference probe
     if ref_probe is not None:
         if np.array(ref_probe).ndim == 2:
@@ -463,9 +462,9 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         probe_modes = ref_probe_modes
 
     # start_time = time.time()
-    
+
     print('{} recon starts ...'.format(approach))
-    
+
     # PMACE reconstruction
     for i in tqdm(range(num_iter)):
         # Update the current patch using data fitting: w <- F(v; w)
@@ -489,7 +488,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             if i + 1 in add_mode:
                 probe_modes, probe_dict = add_probe_mode(probe_modes, consens_patch, y_intsty, probe_dict,
                                                          fresnel_propagation=True, dx=img_px_sz, wavelength=wavelength, propagation_dist=propagation_dist)
-                
+
             # Calculate estimated intensity for each probe mode
             est_intsty = [np.abs(compute_ft(np.copy(tmp_mode) * consens_patch)) ** 2 for tmp_mode in probe_modes]
 
@@ -504,7 +503,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
             # Calculate the weight for each probe mode
             test_mode_weight = test_mode_energy / np.sum(test_mode_energy, axis=0)
-            
+
             # Loop through probe_modes to update each mode
             for mode_idx, cur_mode in enumerate(probe_modes):
                 # # Calculate residual measurements
@@ -526,20 +525,20 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 # Update probe modes
                 probe_modes[mode_idx] = consens_probe
                 probe_dict[mode_idx] = new_probe_arr
-                
+
             # Calculate the energy of each probe mode
             test_mode_energy = [np.linalg.norm(tmp_mode) ** gamma for tmp_mode in probe_modes]
 
             # Calculate the weight for each probe mode
             test_mode_weight = test_mode_energy / np.sum(test_mode_energy, axis=0)
-            
+
             # ======================================================== TODO: Probe center correction
             # ======================================================== TODO: Sample poisition refinement
 
             # # Update image weights
             # patch_weight = np.sum(np.abs(probe_modes) ** probe_exp, axis=0)
             # image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
-                 
+
         # Phase normalization and scale image to minimize the intensity difference
         if ref_obj is not None:
             revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
@@ -568,13 +567,13 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         est_meas = np.sqrt(np.sum([np.abs(compute_ft(tmp_mode * est_patch))**2 for _, tmp_mode in enumerate(probe_modes)], axis=0))
         nrmse_meas.append(compute_nrmse(est_meas, y_meas))
         mse_meas.append(compute_mse(est_meas, y_meas))
-        
+
         if (i+1)%20 == 0:
             # SAVE INTER RESULT
             save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
             for mode_idx, cur_mode in enumerate(probe_modes):
                 save_tiff(cur_mode, save_dir + 'probe_est_iter_{}_mode_{}.tiff'.format(i + 1, mode_idx))
-        
+
 
     # # calculate time consumption
     # print('Time consumption of {}:'.format(approach), time.time() - start_time)
