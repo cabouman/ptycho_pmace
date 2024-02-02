@@ -14,9 +14,9 @@ pmace.pmace
 
    .. autosummary::
       PMACE
-      object_data_fit_op
-      probe_data_fit_op
-      consens_op
+      get_data_fit_pt
+      pixel_weighted_avg_op
+      add_probe_mode
       pmace_recon
 
 
