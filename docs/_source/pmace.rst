@@ -3,10 +3,10 @@ pmace
 
 
 pmace.pmace
-------------
+-----------
 
 .. automodule:: pmace.pmace
-   :members: PMACE, object_data_fit_op, probe_data_fit_op, consens_op, pmace_recon
+   :members: PMACE, get_data_fit_pt, pixel_weighted_avg_op, add_probe_mode, pmace_recon
    :undoc-members:
    :show-inheritance:
 
