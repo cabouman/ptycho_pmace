@@ -2,7 +2,6 @@ import sys
 import os
 import pyfftw
 import re
-import imageio
 import scico.linop.optics as op
 import tifffile as tiff
 import pandas as pd
@@ -38,47 +37,75 @@ def float2cmplx(arg):
         arg (float): Float argument.
 
     Returns:
-        Complex number.
+        Complex-valued number.
     """
     output = arg.astype(np.complex64) if isinstance(arg, float) else arg
     
     return output
 
 
-def gen_gif(cmplx_images, fps=5, save_dir=None):
-    """Generate a .gif image from a sequence of complex-valued images.
-
-    Args:
-        cmplx_images (list of numpy.ndarray): List of complex images.
-        fps (int): Frames per second.
-        save_dir (str): Output directory.
-    """
-    # Convert real and imaginary parts to uint8
-    real_images = [scale(np.real(cmplx_img), [0, 1]).astype(np.float64) + 1e-16 for cmplx_img in cmplx_images]
-    imag_images = [scale(np.imag(cmplx_img), [0, 1]).astype(np.float64) + 1e-16 for cmplx_img in cmplx_images]
-    real_uint = np.asarray([255 * real_img / np.amax(real_img) for real_img in real_images]).astype(np.uint8)
-    imag_uint = np.asarray([255 * imag_img / np.amax(imag_img) for imag_img in imag_images]).astype(np.uint8)
-    
-    # Save to file
-    stack_img = [np.hstack((real_uint[idx], imag_uint[idx])) for idx in range(len(real_uint))]
-    imageio.mimsave(save_dir + 'real_imag_reconstruction.gif', stack_img, fps=fps)
-    
-
 def load_img(img_dir):
-    """Read an image from a directory.
+    """Load a complex image from a TIFF file.
 
     Args:
-        img_dir (str): Directory of the image.
+        img_dir (str): Directory of the TIFF image.
 
     Returns:
         numpy.ndarray: Complex image array.
     """
     # Read a TIFF image
     img = tiff.imread(img_dir)
+    
+    # Separate real and imaginary parts, magnitude, and phase
     real, imag, mag, pha = img[0], img[1], img[2], img[3]
+    
+    # Create a complex image array
     cmplx_img = real + 1j * imag
                  
     return cmplx_img
+
+
+def load_measurement(fpath):
+    """Read measurements from a path and pre-process data.
+
+    Args:
+        fpath (str): File directory.
+
+    Returns:
+        numpy.ndarray: Pre-processed measurement (square root of non-negative data).
+    """
+    # Specify the order of measurement
+    def key_func(fname):
+        non_digits = re.compile("\D")
+        output = int(non_digits.sub("", fname))
+        return output
+
+    # Read the measurements
+    work_dir = os.listdir(fpath)
+    
+    # Remove system files
+    if '.DS_Store' in work_dir:
+        work_dir.remove('.DS_Store')
+    
+    # Sort files based on their numeric indices
+    work_dir.sort(key=key_func)
+    
+    # Initialize empty list to store measurements
+    meas_ls = []
+    
+    # Loop through each measurement
+    for fname in work_dir:
+        # Load measurements
+        meas = tiff.imread(os.path.join(fpath, fname))
+        # Remove negtive values
+        meas[meas < 0] = 0      
+        # Take square root of the non-negative values
+        meas_ls.append(np.sqrt(int2float(meas)))
+
+    # Stack the measurements
+    output = np.asarray(meas_ls)
+        
+    return output
 
 
 def gen_scan_loc(cmplx_obj, cmplx_probe, num_pt, probe_spacing, randomization=True, max_offset=5):
@@ -95,13 +122,16 @@ def gen_scan_loc(cmplx_obj, cmplx_probe, num_pt, probe_spacing, randomization=Tr
     Returns:
         numpy.ndarray: Generated scan points.
     """
-    # Initialization
+    # Get image dimensions
     x, y = cmplx_obj.shape
     m, n = cmplx_probe.shape
+    
+    # Calculate number of points along each dimension
     num_pt_x, num_pt_y = int(np.sqrt(num_pt)), int(np.sqrt(num_pt))
 
     # Generate scan points in raster order
-    scan_pt = [((i - num_pt_x / 2 + 1 / 2) * probe_spacing + x / 2, (j - num_pt_y / 2 + 1 / 2) * probe_spacing + y / 2)
+    scan_pt = [((i - num_pt_x / 2 + 1 / 2) * probe_spacing + x / 2, 
+                (j - num_pt_y / 2 + 1 / 2) * probe_spacing + y / 2)
                for j in range(num_pt_x)
                for i in range(num_pt_y)]
 
@@ -110,6 +140,7 @@ def gen_scan_loc(cmplx_obj, cmplx_probe, num_pt, probe_spacing, randomization=Tr
         offset = np.random.uniform(low=-max_offset, high=(max_offset + 1), size=(num_pt, 2))
         scan_pt = np.asarray(scan_pt + offset)
 
+    # Check if scanning points are beyond valid region
     if ((int(np.amin(scan_pt) - m / 2) < 0) or (int(np.amax(scan_pt) + n / 2 ) >= np.max([x, y]))):
         print('Warning: Scanning beyond valid region! Please extend image or reduce probe spacing. ')
 
@@ -131,15 +162,25 @@ def gen_syn_data(cmplx_obj, cmplx_probe, patch_bounds, add_noise=True, peak_phot
     Returns:
         numpy.ndarray: Simulated ptychographic data.
     """
-    # Initialization
+    # Get image dimensions
     m, n = cmplx_probe.shape
     num_pts = len(patch_bounds)
     
-    # Extract patches x_j from the full-sized object
+    # Extract patches from full-sized object
     projected_patches = img2patch(cmplx_obj, patch_bounds, (num_pts, m, n))
     
+    # Expand the dimensions of complex-valued probe
+    if cmplx_probe is not None:
+        probe_modes = np.expand_dims(cmplx_probe, axis=0) if np.array(cmplx_probe).ndim == 2 else cmplx_probe
+    else:
+        raise ValueError("Invalid probe")
+        
+    # Initialize data array
+    noiseless_data = np.zeros_like(projected_patches, dtype=np.float32)
+    
     # Take 2D DFT and generate noiseless measurements
-    noiseless_data = np.abs(compute_ft(cmplx_probe * projected_patches)) ** 2
+    for probe_mode in probe_modes:
+        noiseless_data += np.abs(compute_ft(probe_mode * projected_patches)) ** 2
         
     # Introduce photon noise
     if add_noise:
@@ -148,10 +189,10 @@ def gen_syn_data(cmplx_obj, cmplx_probe, patch_bounds, add_noise=True, peak_phot
         # Calculate expected photon rate given peak signal value and peak photon rate
         expected_photon_rate = noiseless_data * peak_photon_rate / peak_signal_val
         # Poisson random values realization
-        meas_in_photon_ct = np.random.poisson(expected_photon_rate, (num_pts, m, n))
+        photon_count = np.random.poisson(expected_photon_rate, (num_pts, m, n))
         # Add dark current noise
-        noisy_data = meas_in_photon_ct + np.random.poisson(lam=shot_noise_pm, size=(num_pts, m, n))
-        # Return the numbers
+        noisy_data = photon_count + np.random.poisson(lam=shot_noise_pm, size=(num_pts, m, n))
+        # Return the noisy data
         output = np.asarray(noisy_data, dtype=int)
     else:
         # Return the floating-point numbers without Poisson random variable realization
@@ -167,76 +208,50 @@ def gen_syn_data(cmplx_obj, cmplx_probe, patch_bounds, add_noise=True, peak_phot
     return output
 
 
-def load_measurement(fpath):
-    """Read measurements from a path and pre-process data.
-
-    Args:
-        fpath (str): File directory.
-
-    Returns:
-        numpy.ndarray: Pre-processed measurement (square root of non-negative data).
-    """
-    # Specify the order of measurement
-    def key_func(fname):
-        non_digits = re.compile("\D")
-        output = int(non_digits.sub("", fname))
-        return output
-
-    # Read the measurements and remove negative values
-    meas_ls = []
-    work_dir = os.listdir(fpath)
-    if '.DS_Store' in work_dir:
-        work_dir.remove('.DS_Store')
-        
-    work_dir.sort(key=key_func)
-    for fname in work_dir:
-        # Load measurements
-        meas = tiff.imread(os.path.join(fpath, fname))
-        meas[meas < 0] = 0      
-        # Take square root of the non-negative values
-        meas_ls.append(np.sqrt(int2float(meas)))
-
-    # Stack the measurements
-    output = np.asarray(meas_ls)
-        
-    return output
-
-
-def gen_init_obj(y_meas, coords, img_sz, ref_probe=None, lpf_sigma=10):
+def gen_init_obj(y_meas, patch_crds, img_sz, ref_probe, lpf_sigma=10):
     """Formulate an initial guess of a complex object for reconstruction.
 
     Args:
         y_meas (numpy.ndarray): Pre-processed intensity measurements.
-        coords (numpy.ndarray): Coordinates of projections.
+        patch_crds (numpy.ndarray): Coordinates of projections.
         img_sz (tuple): Size of the full complex image (rows, columns).
         ref_probe (numpy.ndarray): Known or estimated complex probe function.
         lpf_sigma (float): Standard deviation of the Gaussian kernel for low-pass filtering the initialized guess.
 
     Returns:
-        numpy.ndarray: The formulated initial guess of a complex transmittance image.
+        numpy.ndarray: The formulated initial guess of object transmittance image.
     """
-    if ref_probe is None:
-        ref_probe = np.ones_like(y_meas[0]).astype(np.complex64)
+    # patch_rms = [[np.sqrt(np.linalg.norm(y_meas[j]) / np.linalg.norm(ref_probe))] * np.ones_like(ref_probe)
+    #              for j in range(len(y_meas))]
+    
+    # Calculate RMS of patches
+    patch_rms = np.sqrt(np.linalg.norm(y_meas, axis=tuple([-2, -1])) / np.linalg.norm(ref_probe))
 
-    patch_rms = [[np.sqrt(np.linalg.norm(y_meas[j]) / np.linalg.norm(ref_probe))] * np.ones_like(ref_probe)
-                 for j in range(len(y_meas))]
-    img_wgt = patch2img(np.ones_like(y_meas), coords, img_sz=img_sz)
-    init_obj = patch2img(patch_rms, coords, img_sz=img_sz, norm_wgt=img_wgt)
-    init_obj[init_obj == 0] = np.median(init_obj)
+    # Construct array of patches
+    patch_arr = np.tile(patch_rms, (ref_probe.shape[0], ref_probe.shape[1], 1))
+    
+    # Convert dimensions of array to (num_patch, m, n)
+    img_patch = np.transpose(patch_arr, (2, 0, 1))
+
+    # Project patches to compose full-sized image with proper weights
+    img_wgt = patch2img(np.ones_like(y_meas), patch_crds, img_sz=img_sz)
+    init_obj = patch2img(img_patch, patch_crds, img_sz=img_sz, norm_wgt=img_wgt)
     
     # Apply LPF to remove high frequencies
+    init_obj[init_obj == 0] = np.median(init_obj)
     output = gaussian_filter(np.abs(init_obj), sigma=lpf_sigma)
 
     return output.astype(np.complex64)
 
 
-def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_interval=None,
+# ====================================================================================== CHECKFLAGS
+def gen_init_probe(y_meas, patch_crds, ref_obj, fres_propagation=False, sampling_interval=None,
                    source_wl=0.140891, propagation_dist=4e2, lpf_sigma=2):
     """Formulate an initial complex probe from the initialized object and data.
 
     Args:
         y_meas (numpy.ndarray): Pre-processed diffraction patterns.
-        coords (numpy.ndarray): Coordinates of projections.
+        patch_crds (numpy.ndarray): Coordinates of projections.
         ref_obj (numpy.ndarray): Ground truth complex object or reference images.
         fres_propagation (bool): Option to Fresnel propagate the initialized probe.
         sampling_interval (float): Sampling interval at the source plane.
@@ -247,20 +262,23 @@ def gen_init_probe(y_meas, coords, ref_obj, fres_propagation=False, sampling_int
     Returns:
         numpy.ndarray: The formulated initial guess of a complex probe.
     """
+    # Initialization
+    k0  = 2 * np.pi / source_wl
+    Nx = y_meas.shape[-1]
+    
     if sampling_interval is None:
-        sampling_interval = 2 * source_wl
+        sampling_interval = np.sqrt(10 * 2 * np.pi * propagation_dist / (k0 * Nx))
         
     # Formulate init probe
-    patch = img2patch(ref_obj, coords, y_meas.shape)
+    patch = img2patch(ref_obj, patch_crds, y_meas.shape)
+    ## ====================================================== init_probe = np.average(compute_ift(y_meas) / patch)
     tmp = [compute_ift(y_meas[j]) / patch[j] for j in range(len(y_meas))]
     init_probe = np.average(tmp, axis=0)
         
     # Fresnel propagation initialized probe
-    # TODO: double-check default parameters of Fresnel propagation
     if fres_propagation:
         m, n = init_probe.shape
-        fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=2 * np.pi / source_wl, z=propagation_dist)
-        # fres_op = op.FresnelPropagator(tuple([m, n]), dx=7.33808, k0=2 * np.pi / 0.140891, z=3e5, pad_factor=1, jit=True)
+        fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=k0, z=propagation_dist)
         output = fres_op(init_probe)
     else:
         output = init_probe
@@ -607,60 +625,3 @@ def query_yes_no(question, default="n"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
     return
-
-
-def find_center_offset(cmplx_img):
-    """Find the unknown center of a symmetric pattern in an image.
-
-    Args:
-        cmplx_img (numpy.ndarray): Image with a symmetric pattern (such as a complex-valued probe function).
-
-    Returns:
-        list: Offset between the true image center and symmetric pattern center.
-    """
-    # Find the center of the given image
-    c_0, c_1 = int(np.shape(cmplx_img)[0] / 2), int(np.shape(cmplx_img)[1] / 2)
-    
-    # Calculate peak and mean value of the magnitude image
-    mag_img = np.abs(cmplx_img)
-    peak_mag, mean_mag = np.amax(mag_img), np.mean(mag_img)
-    
-    # Find a group of points above the mean value
-    pts = np.asarray(list(zip(*np.where(np.logical_and(mag_img >= mean_mag, mag_img <= peak_mag)))))
-    
-    # Find the unknown shifted center by averaging the group of points
-    curr_center = np.mean(pts, axis=0)
-    
-    # Compute the offset between the unknown shifted center and the true center of the image
-    center_offset = [int(c_0 - np.around(curr_center[0])), int(c_1 - np.around(curr_center[1]))]
-
-    return center_offset
-
-
-def correct_img_center(shifted_img, ref_img=None):
-    """Shift a symmetric pattern to the center of an image.
-
-    Args:
-        shifted_img (numpy.ndarray): Image with unknown offsets.
-        ref_img (numpy.ndarray, optional): Reference image for finding the unknown offsets.
-
-    Returns:
-        numpy.ndarray: Corrected image with the proper center location.
-    """
-    # Check reference image
-    if ref_img is None:
-        ref_img = np.copy(shifted_img)
-        
-    # Ensure the input image shape matches with the reference image
-    try:
-        shifted_img.shape == ref_img.shape
-    except:
-        print('Error: image shapes don\'t match')
-        
-    # Compute center offset using the reference image
-    offset = find_center_offset(ref_img)
-    
-    # Shift the image back to the correct location
-    output = np.roll(shifted_img, (offset[0], offset[1]), axis=(0, 1))
-
-    return output

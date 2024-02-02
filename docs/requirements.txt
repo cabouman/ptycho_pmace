@@ -8,4 +8,3 @@ numpy
 pymp
 pyfftw
 matplotlib
-imageio
