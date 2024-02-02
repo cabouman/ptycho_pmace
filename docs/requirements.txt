@@ -5,11 +5,6 @@ sphinxcontrib-bibtex
 ruamel.yaml~=0.16.12
 psutil~=5.8.0
 numpy
-pymp-pypi~=0.5.0
+pymp
 pyfftw
 matplotlib
-pandas
-tqdm
-bm4d
-functools
-scico
