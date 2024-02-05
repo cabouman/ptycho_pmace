@@ -108,6 +108,47 @@ def load_measurement(fpath):
     return output
 
 
+def traverse_cxi_file(f_dir):
+    """
+    Traverse an HDF5 CXI file and print information.
+
+    Args:
+        f_dir (str): Path to the CXI file.
+    """
+    with h5py.File(f_dir, 'r') as cxi_file:
+        
+        # Function to recursively traverse the HDF5 file
+        def traverse(group, current_path):
+            for name, item in group.items():
+                # Print the current directory path
+                print(os.path.join(current_path, name))            
+                
+                # Check if the item is a directory
+                if isinstance(item, h5py.Group):
+                    # Recursively traverse the subdirectory
+                    traverse(item, os.path.join(current_path, name))
+                else:
+                    # print(f"  - {os.path.join(current_path, name)}")
+                    dataset_path = os.path.join(current_path, name)
+                    print(f"  - {dataset_path}")
+                    
+                    # Check if the dataset has attributes (keys)
+                    keys = list(cxi_file[dataset_path].attrs.keys())
+                    if keys:
+                        print(f"  - {dataset_path}")
+                        print(f"    Keys: {keys}")
+                        print(f"    Values: {cxi_file[dataset_path][:]}")
+                        print("=" * 60)
+                    else:
+                        # If no keys, assume it's a simple array dataset
+                        array = np.array(cxi_file[dataset_path])
+                        print(f"    Values: {array}")
+                        print("=" * 60)
+
+        # Start traversal from the root
+        traverse(cxi_file, '/')
+        
+
 def gen_scan_loc(cmplx_obj, cmplx_probe, num_pt, probe_spacing, randomization=True, max_offset=5):
     """Generate scan locations.
 
@@ -274,7 +315,7 @@ def gen_init_probe(y_meas, patch_crds, ref_obj, fres_propagation=False, sampling
     ## ====================================================== init_probe = np.average(compute_ift(y_meas) / patch)
     tmp = [compute_ift(y_meas[j]) / patch[j] for j in range(len(y_meas))]
     init_probe = np.average(tmp, axis=0)
-        
+    
     # Fresnel propagation initialized probe
     if fres_propagation:
         m, n = init_probe.shape
