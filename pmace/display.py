@@ -3,15 +3,19 @@ import matplotlib.pyplot as plt
 from .nrmse import *
 
 
-def plot_scan_pt(scan_pt):
-    """Plot scan points.
+def plot_scan_pt(scan_pt, save_dir):
+    """
+    Plot scan points.
 
     Args:
         scan_pt (numpy.ndarray): Array of scan points as (x, y) coordinates.
+        save_dir (str): Directory to save the plot.
     """
-    plt.plot(np.asarray(scan_pt)[:, 0], np.asarray(scan_pt)[:, 1], 'o-')
+    plt.plot(scan_pt[:, 0], scan_pt[:, 1], 'o-')
     plt.title('Scan Points')
-    plt.show()
+    plt.xlabel('X Coordinate')
+    plt.ylabel('Y Coordinate')
+    plt.savefig(save_dir + 'scan_locations.png', transparent=True, bbox_inches='tight')
     plt.clf()
     
 
