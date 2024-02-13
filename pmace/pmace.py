@@ -326,41 +326,6 @@ def determine_denoising_area(cmplx_img, predefined_mask=None):
     return denoising_area
 
 
-# def probe_data_fit_op(cur_est, joint_est, y_meas, data_fit_prm):
-#     r"""Data-fitting operator.
-
-#     The weighted proximal map operator :math:`F` is a stack of data-fitting agents,
-#     which revises estiamtes of complex patches or probe.
-
-#     Args:
-#         cur_est (array): Current estimate of projected images or complex probe.
-#         joint_est (array): Current estimate of complex probe or projected images.
-#         y_meas (array): Pre-processed ptychographic measurements.
-#         data_fit_prm (float): Weighting parameter representing the noise-to-signal ratio of the data.
-
-#     Returns:
-#         array: New estimates of projected image patches or complex probe.
-#     """
-#     # start_time = time.time()
-
-#     # Create an output array to store the results
-#     output = pymp.shared.array(cur_est.shape, dtype='cfloat')
-
-#     # Use parallel processing to update estimates
-#     with pymp.Parallel(8) as p:
-#         # for idx in p.iterate(p.range(len(cur_est))):
-#         for idx in p.range(len(cur_est)):
-#             # Calculate the data-fitting point for the current index
-#             data_fit_pt = get_data_fit_pt(cur_est[idx], joint_est[idx], y_meas[idx])
-
-#             # Update the estimate using the data-fitting parameter
-#             output[idx] = (1 - data_fit_prm) * cur_est[idx] + data_fit_prm * data_fit_pt
-
-#     # print(time.time() - start_time)
-
-#     return output
-
-
 def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
@@ -419,7 +384,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
     # Initialize error metrics
     nrmse_obj = []
-    nrmse_probe = []
+    nrmse_probe = [ [] for _ in range(max(2, 1 + len(set(add_mode)))) ]
     nrmse_meas = []
     mse_meas = []
     mse_intsty = []
@@ -486,7 +451,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 probe_modes, probe_dict = add_probe_mode(probe_modes, consens_patch, y_intsty, probe_dict, energy_ratio=energy_ratio,
                                                          fresnel_propagation=True, dx=img_px_sz, wavelength=wavelength, propagation_dist=propagation_dist)
                 save_tiff(probe_modes[-1], save_dir + 'added_mode_iter_{}.tiff'.format(i+1))
-             
+                
             # Orthogonalize probe modes
             if i + 1 in orthogonalize_modes:
                 probe_modes = orthogonalize_images(probe_modes)
@@ -496,15 +461,6 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
             # Calculate the sum of estimated intensities
             sum_intsty = np.sum(est_intsty, axis=0)
-
-            # # Calculate the difference between measured intensity and the sum of estimated intensities
-            # diff_intsty = y_intsty - sum_intsty
-
-            # Calculate the energy of each probe mode
-            test_mode_energy = [np.linalg.norm(tmp_mode) ** gamma for tmp_mode in probe_modes]
-
-            # Calculate the weight for each probe mode
-            test_mode_weight = test_mode_energy / np.sum(test_mode_energy, axis=0)
             
             # Loop through probe_modes to update each mode
             for mode_idx, cur_mode in enumerate(probe_modes):
@@ -525,16 +481,10 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
 
                 # Update probe modes
-                probe_modes[mode_idx] = consens_probe
+                probe_modes[mode_idx] = consens_probe 
                 probe_dict[mode_idx] = new_probe_arr
-                
-            # Calculate the energy of each probe mode
-            test_mode_energy = [np.linalg.norm(tmp_mode) ** gamma for tmp_mode in probe_modes]
-
-            # Calculate the weight for each probe mode
-            test_mode_weight = test_mode_energy / np.sum(test_mode_energy, axis=0)
             
-            # ======================================================== TODO: Probe center correction
+            # Probe center correction
             if i + 1 in probe_center_correction:
                 est_obj, probe_modes = center_img_with_main_mode(est_obj, probe_modes)
                 if reinit:
@@ -544,12 +494,9 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 # Update probe array
                 for mode_idx, cur_mode in enumerate(probe_modes):
                     probe_dict[mode_idx] = np.array([cur_mode] * len(y_meas))
+                    
             # ======================================================== TODO: Sample poisition refinement
 
-            # # Update image weights
-            # patch_weight = np.sum(np.abs(probe_modes) ** probe_exp, axis=0)
-            # image_weight = patch2img([patch_weight] * len(y_meas), patch_bounds, image_sz)
-                 
         # Phase normalization and scale image to minimize the intensity difference
         if ref_obj is not None:
             revy_obj = phase_norm(np.copy(est_obj) * recon_win, ref_obj * recon_win, cstr=recon_win)
@@ -559,11 +506,11 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             revy_obj = est_obj
 
         if joint_recon and (ref_probe_modes is not None):
-            tmp_probe_err = 0
+            # tmp_probe_err = 0
             for mode_idx in range(min(len(probe_modes), len(ref_probe_modes))):
                 tmp_probe_mode = phase_norm(np.copy(probe_modes[mode_idx]), ref_probe_modes[mode_idx])
-                tmp_probe_err += compute_nrmse(tmp_probe_mode, ref_probe_modes[mode_idx])
-            nrmse_probe.append(tmp_probe_err)
+                tmp_probe_err = compute_nrmse(tmp_probe_mode, ref_probe_modes[mode_idx])
+                nrmse_probe[mode_idx].append(tmp_probe_err)
             revy_probe = probe_modes
         else:
             revy_probe = probe_modes
@@ -596,7 +543,8 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             for mode_idx, cur_mode in enumerate(probe_modes):
                 save_tiff(cur_mode, save_dir + 'probe_est_iter_{}_mode_{}.tiff'.format(i + 1, mode_idx))
             if nrmse_probe:
-                save_array(nrmse_probe, save_dir + 'nrmse_probe_' + str(nrmse_probe[-1]))
+                for mode_idx, nrmse_mode in enumerate(nrmse_probe):
+                    save_array(nrmse_mode, save_dir + f'probe_mode_{mode_idx}_nrmse_' + str(nrmse_mode[-1]))
 
     # return recon results
     print('{} recon completed.'.format(approach))
