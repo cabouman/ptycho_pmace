@@ -199,10 +199,42 @@ def pixel_weighted_avg_op(projected_patches, probe_modes, mode_weights,
     return output_img, output_patch
 
 
+# def orthogonalize_images(cmplx_imgs):
+#     """
+#     Orthogonalize a list of complex-valued images.
+#     ====================================== TODO: Keep or remove normalization
+
+#     Args:
+#         cmplx_imgs (list of numpy.ndarrays): List of input complex-valued images.
+
+#     Returns:
+#         list of numpy.ndarrays: List of orthogonalized complex-valued images.
+#     """
+#     # Initialize a list to store orthogonalized images
+#     orthogonalized_imgs = []
+    
+#     # Orthogonalization 
+#     for i in range(len(cmplx_imgs)):
+#         img = cmplx_imgs[i]
+#         sqrt_energy = np.linalg.norm(img)
+#         # Loop
+#         for j in range(i):
+#             # Projection of the image onto the orthogonalized image
+#             projection = np.vdot(orthogonalized_imgs[j], img) / np.vdot(orthogonalized_imgs[j], orthogonalized_imgs[j]) * orthogonalized_imgs[j]
+#             # Orthogonalize the image
+#             ortho_img = img - projection
+#             # Normalization
+#             img = ortho_img * sqrt_energy / np.linalg.norm(ortho_img)
+
+#         # Append orthogonalized image to the list
+#         orthogonalized_imgs.append(img) 
+
+#     return orthogonalized_imgs
+
+
 def orthogonalize_images(cmplx_imgs):
     """
-    Orthogonalize a list of complex-valued images.
-    ====================================== TODO: Keep or remove normalization
+    Orthogonalize complex-valued images using Singular Value Decomposition (SVD).
 
     Args:
         cmplx_imgs (list of numpy.ndarrays): List of input complex-valued images.
@@ -210,24 +242,27 @@ def orthogonalize_images(cmplx_imgs):
     Returns:
         list of numpy.ndarrays: List of orthogonalized complex-valued images.
     """
-    # Initialize a list to store orthogonalized images
+    # Initialize an empty list
     orthogonalized_imgs = []
     
-    # Orthogonalization 
-    for i in range(len(cmplx_imgs)):
-        img = cmplx_imgs[i]
-        sqrt_energy = np.linalg.norm(img)
-        # Loop
-        for j in range(i):
-            # Projection of the image onto the orthogonalized image
-            projection = np.vdot(orthogonalized_imgs[j], img) / np.vdot(orthogonalized_imgs[j], orthogonalized_imgs[j]) * orthogonalized_imgs[j]
-            # Orthogonalize the image
-            ortho_img = img - projection
-            # Normalization
-            img = ortho_img * sqrt_energy / np.linalg.norm(ortho_img)
+    # Stack the flattened images into a matrix
+    stacked_imgs = np.stack(cmplx_imgs, axis=-1)
+    
+    # Reshape the stacked matrix to have each image as a column
+    reshaped_imgs = stacked_imgs.reshape(-1, len(cmplx_imgs))
 
-        # Append orthogonalized image to the list
-        orthogonalized_imgs.append(img) 
+    # Perform SVD
+    U, s, Vh = np.linalg.svd(reshaped_imgs, full_matrices=False)
+
+    # Reconstruct the orthogonalized images using singular vectors
+    recon_imgs = U @ np.diag(s)
+
+    # Reshape orthogonalized images to their original shapes
+    for i in range(len(cmplx_imgs)):
+        sqrt_energy = np.linalg.norm(cmplx_imgs[i])
+        ortho_img = recon_imgs[:, i].reshape(cmplx_imgs[i].shape)
+        scaled_img = ortho_img * sqrt_energy / np.linalg.norm(ortho_img)
+        orthogonalized_imgs.append(scaled_img)
 
     return orthogonalized_imgs
 
@@ -455,7 +490,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             # Orthogonalize probe modes
             if i + 1 in orthogonalize_modes:
                 probe_modes = orthogonalize_images(probe_modes)
-                
+
             # Calculate estimated intensity for each probe mode
             est_intsty = [np.abs(compute_ft(np.copy(tmp_mode) * consens_patch)) ** 2 for tmp_mode in probe_modes]
 
@@ -495,6 +530,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
                 for mode_idx, cur_mode in enumerate(probe_modes):
                     probe_dict[mode_idx] = np.array([cur_mode] * len(y_meas))
                     
+   
             # ======================================================== TODO: Sample poisition refinement
 
         # Phase normalization and scale image to minimize the intensity difference
