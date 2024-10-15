@@ -1,19 +1,19 @@
 import sys
 import os
-import pyfftw
 import re
-import scico.linop.optics as op
+import glob
+import tarfile
+import urllib.request
+import multiprocessing as mp
+
+import pyfftw
 import tifffile as tiff
 import pandas as pd
 import numpy as np
 from numpy import linalg as LA
-import multiprocessing as mp
 from scipy import signal
 from scipy.ndimage import gaussian_filter
-import glob
-import urllib.request
-import tarfile
-from pathlib import Path
+import h5py
 
 
 def int2float(arg):
@@ -56,8 +56,8 @@ def load_img(img_dir):
     # Read a TIFF image
     img = tiff.imread(img_dir)
     
-    # Separate real and imaginary parts, magnitude, and phase
-    real, imag, mag, pha = img[0], img[1], img[2], img[3]
+    # Separate real and imaginary parts
+    real, imag = img[0], img[1]
     
     # Create a complex image array
     cmplx_img = real + 1j * imag
@@ -109,8 +109,7 @@ def load_measurement(fpath):
 
 
 def traverse_cxi_file(f_dir):
-    """
-    Traverse an HDF5 CXI file and print information.
+    """Traverse an HDF5 CXI file and print information.
 
     Args:
         f_dir (str): Path to the CXI file.
@@ -150,7 +149,7 @@ def traverse_cxi_file(f_dir):
         
 
 def gen_scan_loc(cmplx_obj, cmplx_probe, num_pt, probe_spacing, randomization=True, max_offset=5):
-    """Generate scan locations.
+    """Simulate scan locations.
 
     Args:
         cmplx_obj (numpy.ndarray): Complex sample image to be scanned.
@@ -203,26 +202,29 @@ def gen_syn_data(cmplx_obj, cmplx_probe, patch_bounds, add_noise=True, peak_phot
     Returns:
         numpy.ndarray: Simulated ptychographic data.
     """
-    # Get image dimensions
-    m, n = cmplx_probe.shape
-    num_pts = len(patch_bounds)
-    
-    # Extract patches from full-sized object
-    projected_patches = img2patch(cmplx_obj, patch_bounds, (num_pts, m, n))
-    
     # Expand the dimensions of complex-valued probe
     if cmplx_probe is not None:
         probe_modes = np.expand_dims(cmplx_probe, axis=0) if np.array(cmplx_probe).ndim == 2 else cmplx_probe
     else:
         raise ValueError("Invalid probe")
         
+    # Get image dimensions
+    m, n = probe_modes[0].shape
+    num_pts = len(patch_bounds)
+    
+    # Extract patches from full-sized object
+    projected_patches = img2patch(cmplx_obj, patch_bounds)
+
     # Initialize data array
     noiseless_data = np.zeros_like(projected_patches, dtype=np.float32)
+
+    # Warmup
+    _ = compute_ft(probe_modes[0] * projected_patches[0])
     
     # Take 2D DFT and generate noiseless measurements
     for probe_mode in probe_modes:
         noiseless_data += np.abs(compute_ft(probe_mode * projected_patches)) ** 2
-        
+
     # Introduce photon noise
     if add_noise:
         # Get peak signal value
@@ -249,7 +251,7 @@ def gen_syn_data(cmplx_obj, cmplx_probe, patch_bounds, add_noise=True, peak_phot
     return output
 
 
-def gen_init_obj(y_meas, patch_crds, img_sz, ref_probe, lpf_sigma=10):
+def gen_init_obj(y_meas, patch_crds, img_sz, ref_probe, lpf_sigma=1):
     """Formulate an initial guess of a complex object for reconstruction.
 
     Args:
@@ -262,9 +264,6 @@ def gen_init_obj(y_meas, patch_crds, img_sz, ref_probe, lpf_sigma=10):
     Returns:
         numpy.ndarray: The formulated initial guess of object transmittance image.
     """
-    # patch_rms = [[np.sqrt(np.linalg.norm(y_meas[j]) / np.linalg.norm(ref_probe))] * np.ones_like(ref_probe)
-    #              for j in range(len(y_meas))]
-    
     # Calculate RMS of patches
     patch_rms = np.sqrt(np.linalg.norm(y_meas, axis=tuple([-2, -1])) / np.linalg.norm(ref_probe))
 
@@ -285,49 +284,111 @@ def gen_init_obj(y_meas, patch_crds, img_sz, ref_probe, lpf_sigma=10):
     return output.astype(np.complex64)
 
 
-# ====================================================================================== CHECKFLAGS
-def gen_init_probe(y_meas, patch_crds, ref_obj, fres_propagation=False, sampling_interval=None,
-                   source_wl=0.140891, propagation_dist=4e2, lpf_sigma=2):
+def fresnel_propagation(field, wavelength, distance, dx):
+    """Perform Fresnel propagation of a wavefront from a source plane to an observation plane.
+
+    Args:
+        field (numpy.ndarray): The complex wavefront at the source plane, represented as a 2D array.
+        wavelength (float): The wavelength of the wave in the same units as the distance and dx.
+        distance (float): The propagation distance from the source plane to the observation plane.
+        dx (float): The sampling interval in the source plane, i.e., the distance between adjacent points.
+
+    Returns:
+        numpy.ndarray: A 2D array representing the complex wavefront at the observation plane.
+    """
+    # Number of points in each dimension
+    N = field.shape[0]
+
+    # Spatial frequency coordinates
+    fx = np.fft.fftfreq(N, d=dx)
+    fy = np.fft.fftfreq(N, d=dx)
+    FX, FY = np.meshgrid(fx, fy, indexing='ij')
+
+    # Quadratic phase factor for Fresnel propagation (Fresnel kernel in the frequency domain)
+    H = np.exp(-1j * np.pi * wavelength * distance * (FX**2 + FY**2))
+
+    # Perform Fourier transform of the source field, apply the Fresnel kernel, and then inverse Fourier transform
+    output = np.fft.ifft2(np.fft.fft2(field) * H)
+
+    return output
+
+
+def gen_init_probe(y_meas, patch_crds, ref_obj, lpf_sigma=1, 
+                   fres_propagation=False, sampling_interval=None, source_wl=None, propagation_dist=None):
     """Formulate an initial complex probe from the initialized object and data.
 
     Args:
         y_meas (numpy.ndarray): Pre-processed diffraction patterns.
         patch_crds (numpy.ndarray): Coordinates of projections.
         ref_obj (numpy.ndarray): Ground truth complex object or reference images.
+        lpf_sigma (float): Standard deviation of the Gaussian kernel for removing high frequencies.
         fres_propagation (bool): Option to Fresnel propagate the initialized probe.
         sampling_interval (float): Sampling interval at the source plane.
         source_wl (float): Illumination wavelength.
         propagation_dist (float): Propagation distance.
-        lpf_sigma (float): Standard deviation of the Gaussian kernel for removing high frequencies.
-
+        
     Returns:
         numpy.ndarray: The formulated initial guess of a complex probe.
     """
+    # Ensure wavelength, distance, and dx are provided for Fresnel propagation
+    if fres_propagation and (source_wl is None or propagation_dist is None):
+        raise ValueError("Wavelength and distance must be provided for Fresnel propagation.")
+    
     # Initialization
     k0  = 2 * np.pi / source_wl
-    Nx = y_meas.shape[-1]
+    Nx, Ny = y_meas.shape[-2], y_meas.shape[-1]
     
     if sampling_interval is None:
-        sampling_interval = np.sqrt(10 * 2 * np.pi * propagation_dist / (k0 * Nx))
+        sampling_interval = np.sqrt(2 * np.pi * propagation_dist / (k0 * Nx))
         
     # Formulate init probe
-    patch = img2patch(ref_obj, patch_crds, y_meas.shape)
-    ## ====================================================== init_probe = np.average(compute_ift(y_meas) / patch)
-    tmp = [compute_ift(y_meas[j]) / patch[j] for j in range(len(y_meas))]
-    init_probe = np.average(tmp, axis=0)
+    patch = img2patch(ref_obj, patch_crds)
+    init_probe = np.mean(divide_cmplx_numbers(compute_ift(y_meas), patch), axis=0)
     
     # Fresnel propagation initialized probe
     if fres_propagation:
-        m, n = init_probe.shape
-        fres_op = op.FresnelPropagator(tuple([m, n]), dx=sampling_interval, k0=k0, z=propagation_dist)
-        output = fres_op(init_probe)
-    else:
-        output = init_probe
-        
-    # Apply LPF to remove high frequencies
-    output = gaussian_filter(np.real(output), sigma=lpf_sigma) + 1j * gaussian_filter(np.imag(output), sigma=lpf_sigma)
+        init_probe = fresnel_propagation(init_probe, source_wl, propagation_dist, sampling_interval)
+
+    # Apply Gaussian Low Pass Filter to both real and imaginary parts
+    filtered_real = gaussian_filter(np.real(init_probe), sigma=lpf_sigma)
+    filtered_imag = gaussian_filter(np.imag(init_probe), sigma=lpf_sigma)
+    output = filtered_real + 1j * filtered_imag
 
     return output.astype(np.complex64)
+
+
+def generate_initial_guesses(y_meas, patch_crds, config, ref_object=None):
+    """Generate initial guesses for object and probe reconstruction.
+    
+    Args:
+        y_meas (numpy.ndarray): The measurements.
+        patch_crds (numpy.ndarray): Coordinates of the projections.
+        config (dict): Configuration parameters.
+        ref_object (numpy.ndarray): Reference object image.
+        
+    Returns:
+        init_obj (numpy.ndarray): Initial guess for the object.
+        init_probe (numpy.ndarray): Initial guess for the probe.
+    """
+    # Retrieve initialization parameters from configuration file
+    fresnel_propagation = config['initialization']['fresnel_propagation']
+    source_wl = float(config['initialization']['source_wavelength'])
+    propagation_dist = float(config['initialization']['propagation_distance'])
+    sampling_interval = float(config['initialization']['sampling_interval'])
+
+    if ref_object is not None:
+        init_obj = np.ones_like(ref_object, dtype=ref_object.dtype)
+    # else:
+
+    # Initialize probe
+    init_probe = gen_init_probe(y_meas, patch_crds, init_obj, 
+                                fres_propagation=fresnel_propagation, sampling_interval=sampling_interval,
+                                source_wl=source_wl, propagation_dist=propagation_dist)
+    
+    # Initialize object
+    init_obj = gen_init_obj(y_meas, patch_crds, init_obj.shape, ref_probe=init_probe)
+
+    return init_obj, init_probe
 
 
 def patch2img(img_patches, patch_coords, img_sz, norm_wgt=None):
@@ -359,13 +420,12 @@ def patch2img(img_patches, patch_coords, img_sz, norm_wgt=None):
     return output
 
 
-def img2patch(full_img, patch_coords, patch_sz):
+def img2patch(full_img, patch_coords):
     """Extract image patches from full-sized image.
 
     Args:
         img (numpy.ndarray): Full-sized image.
         coords (numpy.ndarray): Coordinates of projections.
-        patch_sz (tuple): Size of the output patches (rows, columns).
 
     Returns:
         list of numpy.ndarray: Projected image patches.
@@ -383,7 +443,7 @@ def img2patch(full_img, patch_coords, patch_sz):
     return np.asarray(output)
 
 
-def compute_ft(input_array, threads=1):
+def compute_ft(input_array, threads=None):
     """Compute the 2D Discrete Fourier Transform (DFT) of an input array.
     
     Args:
@@ -393,25 +453,18 @@ def compute_ft(input_array, threads=1):
     Returns:
         numpy.ndarray: The result of the 2D DFT.
     """
-    # # DFT using numpy
-    # a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
-    # b = np.fft.fft2(a, s=None, axes=(-2, -1), norm='ortho')
-    # output = np.fft.ifftshift(b, axes=(-2, -1))
-    
-    # DFT using pyfftw
     if threads is None:
         threads = mp.cpu_count()
-    
+
     a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     b = np.zeros_like(a)
     fft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_FORWARD', threads=threads)
     output = np.fft.ifftshift(fft_object(), axes=(-2, -1))
-    
-    return output.astype(np.complex64)
+
+    return output
 
 
-
-def compute_ift(input_array, threads=1):
+def compute_ift(input_array, threads=None):
     """Compute the 2D Inverse Discrete Fourier Transform (IDFT) of an input array.
     
     Args:
@@ -421,12 +474,6 @@ def compute_ift(input_array, threads=1):
     Returns:
         numpy.ndarray: The result of the 2D IDFT.
     """
-    # # DFT using numpy
-    # a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
-    # b = np.fft.ifft2(a, s=None, axes=(-2, -1), norm='ortho')
-    # output = np.fft.ifftshift(b, axes=(-2, -1))
-    
-    # DFT using pyfftw
     if threads is None:
         threads = mp.cpu_count()
 
@@ -435,7 +482,7 @@ def compute_ift(input_array, threads=1):
     ifft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_BACKWARD', threads=threads)
     output = np.fft.ifftshift(ifft_object(), axes=(-2, -1))
     
-    return output.astype(np.complex64)
+    return output
 
 
 def scale(input_obj, out_range):
@@ -470,12 +517,11 @@ def divide_cmplx_numbers(cmplx_num, cmplx_denom):
         numpy.ndarray: Result of the division.
     """
     # Use epsilon to avoid divsion by zero
-    # epsilon = 1e-6 * LA.norm(cmplx_denom, ord='fro') / np.sqrt(cmplx_denom.size)
-    fro_norm = np.sqrt(np.sum(np.square(np.abs(cmplx_denom))))
-    epsilon = 1e-6 * fro_norm / np.sqrt(cmplx_denom.size)
+    fro_norm = np.sqrt(np.sum(np.abs(cmplx_denom) ** 2))
+    epsilon = 1e-6 * fro_norm / np.sqrt(np.array(cmplx_denom).size)
 
     # Calculate the inverse of the denominator, considering epsilon
-    denom_inv = np.conj(cmplx_denom) / (cmplx_denom * np.conj(cmplx_denom) + epsilon)
+    denom_inv = np.conj(cmplx_denom) / (np.abs(cmplx_denom) ** 2 + epsilon)
 
     # Perform element-wise operation, handling division by zero
     output = cmplx_num * denom_inv
