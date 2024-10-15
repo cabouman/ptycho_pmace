@@ -1,15 +1,7 @@
-import pymp
-import psutil
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
-from bm4d import bm4d, BM4DProfile, BM4DStages, BM4DProfile2D, BM4DProfileComplex, BM4DProfileBM3DComplex
-from functools import partial
 from .utils import *
 from .nrmse import *
-from .sample_position_refinement_funcs import *
-from .drift_correction_funcs import *
-import scico.linop.optics as op
+from tqdm import tqdm
+from bm4d import bm4d, BM4DProfileBM3DComplex
 
 
 class PMACE():
@@ -32,8 +24,8 @@ class PMACE():
             return return_val
         
         return wrapper(*self.args, **self.kwargs)
-  
- 
+
+
 def get_data_fit_pt(cur_est, joint_est, y_meas):
     """Data-fitting point.
     
@@ -47,20 +39,9 @@ def get_data_fit_pt(cur_est, joint_est, y_meas):
     Returns:
         numpy.ndarray: Closest data-fitting point.
     """
-    # Initialize an array for storing the output estimates
-    output = pymp.shared.array(cur_est.shape, dtype='cfloat')
-    
-    # Parallel processing with the number of CPU logical cores
-    with pymp.Parallel(psutil.cpu_count(logical=True)) as p:
-        for idx in p.range(len(cur_est)):
-            # Calculate DFT{D * P_j * v}
-            tmp_f = compute_ft(cur_est[idx] * joint_est[idx])
-
-            # Calculate IDFT{y * DFT{D * P_j * v} / | DFT{D * P_j * v} |}
-            inv_f = compute_ift(y_meas[idx] * np.exp(1j * np.angle(tmp_f)))
-
-            # Calculate closest data-fitting point
-            output[idx] = divide_cmplx_numbers(inv_f, joint_est[idx])
+    tmp_f = compute_ft(cur_est * joint_est)
+    inv_f = compute_ift(y_meas * np.exp(1j * np.angle(tmp_f)))
+    output = divide_cmplx_numbers(inv_f, joint_est)
 
     return output
 
@@ -100,7 +81,7 @@ def consens_op(patch, patch_bounds, img_sz, img_wgt, add_reg=False, bm3d_psd=0.1
         cmplx_img[blk_idx[0]: blk_idx[1], blk_idx[2]: blk_idx[3]] = denoised_img
 
     # Reallocate result
-    new_patch = img2patch(cmplx_img, patch_bounds, patch.shape)
+    new_patch = img2patch(cmplx_img, patch_bounds)
 
     return cmplx_img, new_patch
 
@@ -139,7 +120,6 @@ def object_data_fit_op(projected_patches, probe_modes, y_intsty, data_fit_param,
 
     # Update the current patch using probe modes and measured data
     for mode_idx, cur_mode in enumerate(probe_modes):
-        # res_meas = np.emath.sqrt(np.asarray(diff_intsty + est_intsty[mode_idx]))
         cur_meas = np.sqrt(y_intsty / (sum_intsty + 1e-6)) * np.abs(compute_ft(np.copy(cur_mode) * projected_patches))
         output += data_fit_param * mode_weight[mode_idx] * get_data_fit_pt(projected_patches, [cur_mode] * len(cur_meas), cur_meas)
 
@@ -149,8 +129,7 @@ def object_data_fit_op(projected_patches, probe_modes, y_intsty, data_fit_param,
 def pixel_weighted_avg_op(projected_patches, probe_modes, mode_weights,
                           patch_bounds, image_sz, probe_exp=1,
                           regularization=False, bm3d_psd=0.1, blk_idx=None):
-    """
-    Calculate the pixel-weighted average of projected patches and reallocates the result.
+    """Calculate the pixel-weighted average of projected patches and reallocates the result.
 
     Args:
         projected_patches (numpy.ndarray): Array of projected patches.
@@ -194,47 +173,13 @@ def pixel_weighted_avg_op(projected_patches, probe_modes, mode_weights,
         output_img[blk_idx[0]: blk_idx[1], blk_idx[2]: blk_idx[3]] = denoised_img
 
     # Convert the resulting complex image to patches.
-    output_patch = img2patch(output_img, patch_bounds, projected_patches.shape)
+    output_patch = img2patch(output_img, patch_bounds)
 
     return output_img, output_patch
 
 
-# def orthogonalize_images(cmplx_imgs):
-#     """
-#     Orthogonalize a list of complex-valued images.
-#     ====================================== TODO: Keep or remove normalization
-
-#     Args:
-#         cmplx_imgs (list of numpy.ndarrays): List of input complex-valued images.
-
-#     Returns:
-#         list of numpy.ndarrays: List of orthogonalized complex-valued images.
-#     """
-#     # Initialize a list to store orthogonalized images
-#     orthogonalized_imgs = []
-    
-#     # Orthogonalization 
-#     for i in range(len(cmplx_imgs)):
-#         img = cmplx_imgs[i]
-#         sqrt_energy = np.linalg.norm(img)
-#         # Loop
-#         for j in range(i):
-#             # Projection of the image onto the orthogonalized image
-#             projection = np.vdot(orthogonalized_imgs[j], img) / np.vdot(orthogonalized_imgs[j], orthogonalized_imgs[j]) * orthogonalized_imgs[j]
-#             # Orthogonalize the image
-#             ortho_img = img - projection
-#             # Normalization
-#             img = ortho_img * sqrt_energy / np.linalg.norm(ortho_img)
-
-#         # Append orthogonalized image to the list
-#         orthogonalized_imgs.append(img) 
-
-#     return orthogonalized_imgs
-
-
 def orthogonalize_images(cmplx_imgs):
-    """
-    Orthogonalize complex-valued images using Singular Value Decomposition (SVD).
+    """Orthogonalize complex-valued images using Singular Value Decomposition (SVD).
 
     Args:
         cmplx_imgs (list of numpy.ndarrays): List of input complex-valued images.
@@ -259,18 +204,15 @@ def orthogonalize_images(cmplx_imgs):
 
     # Reshape orthogonalized images to their original shapes
     for i in range(len(cmplx_imgs)):
-        sqrt_energy = np.linalg.norm(cmplx_imgs[i])
         ortho_img = recon_imgs[:, i].reshape(cmplx_imgs[i].shape)
-        scaled_img = ortho_img * sqrt_energy / np.linalg.norm(ortho_img)
-        orthogonalized_imgs.append(scaled_img)
+        orthogonalized_imgs.append(ortho_img)
 
     return orthogonalized_imgs
 
     
 def add_probe_mode(probe_modes, projected_patches, y_intsty, probe_dict, energy_ratio=0.05,
-                   fresnel_propagation=False, dx=None, wavelength=None, propagation_dist=None):
-    """
-    Add a new probe mode to the existing list of probe modes and update the probe dictionary.
+                   fresnel_enabled=False, dx=None, wavelength=None, propagation_dist=None):
+    """Add a new mode to the existing probe list and update the probe dictionary.
 
     Args:
         probe_modes (numpy.ndarray): Array of existing probe modes.
@@ -278,7 +220,7 @@ def add_probe_mode(probe_modes, projected_patches, y_intsty, probe_dict, energy_
         y_intsty (numpy.ndarray): The intensity measurement.
         probe_dict (dictionary): Dictionary containing probe modes.
         energy_ratio (float, optional): Ratio of energy in the new probe mode compared to the existing ones. Default is 0.05 (empirically selected).
-        fresnel_propagation (bool, optional): Flag for performing Fresnel propagation.
+        fresnel_enabled (bool, optional): Flag for performing Fresnel propagation.
         dx (float, optional): Sampling interval at source plane. 
         wavelength (float, optional): Wavelength of the imaging radiation. 
         propagation_dist (float, optional): Propagation distance. 
@@ -304,13 +246,12 @@ def add_probe_mode(probe_modes, projected_patches, y_intsty, probe_dict, energy_
     tmp_probe_mode = np.average(tmp_probe_arr, axis=0)
     
     # Fresnel propagate new probe modes
-    grid_size_0, grid_size_1 = tmp_probe_mode.shape[0], tmp_probe_mode.shape[1]
-    k0  = 2 * np.pi / wavelength
-    dx = np.sqrt(10 * 2 * np.pi * propagation_dist / (k0 * grid_size_0))
-    
-    if fresnel_propagation:
-        fres_op = op.FresnelPropagator(tuple([grid_size_0, grid_size_1]), dx=dx, k0=k0, z=propagation_dist)
-        tmp_prop_mode = fres_op(tmp_probe_mode)
+    if dx is None:
+        grid_size_0, grid_size_1 = tmp_probe_mode.shape[0], tmp_probe_mode.shape[1]
+        k0  = 2 * np.pi / wavelength
+        dx = np.sqrt(2 * np.pi * propagation_dist / (k0 * grid_size_0))
+    if fresnel_enabled:
+        tmp_prop_mode = fresnel_propagation(tmp_probe_mode, wavelength, propagation_dist, dx)
         new_probe_mode = tmp_prop_mode * (np.sqrt(energy_ratio) * sqrt_total_energy / np.linalg.norm(tmp_prop_mode))
         new_probe_arr = [new_probe_mode] * len(y_intsty)
     else:
@@ -331,8 +272,7 @@ def add_probe_mode(probe_modes, projected_patches, y_intsty, probe_dict, energy_
 
 
 def determine_denoising_area(cmplx_img, predefined_mask=None):
-    """
-    Determine the area for applying a denoiser based on a binary mask.
+    """Determine the area for applying a denoiser based on a binary mask.
 
     Args:
         cmplx_img (numpy.ndarray): Complex-valued image.
@@ -361,12 +301,51 @@ def determine_denoising_area(cmplx_img, predefined_mask=None):
     return denoising_area
 
 
-def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, ref_probe=None,
+def process_probe_arr(probe_arr, threshold=1.5):
+    """Processes probe data to remove outliers based on a modified Z-score.
+
+    Args:
+        probe_arr (numpy.ndarray): Array of probe data to be processed.
+        threshold (float, optional): Threshold for identifying outliers based on the modified Z-score.
+
+    Returns:
+        est_probe (numpy.ndarray): The estimated probe values (mean across the array).
+        processed_probe_arr (numpy.ndarray): The probe array with outliers replaced by the estimated probe values.
+    """
+    # Compute the average of the probe array across the sample positions
+    est_probe = np.mean(probe_arr, axis=0)
+
+    # Create an array where each row is the estimated probe
+    est_probe_arr = np.array([est_probe] * len(probe_arr))
+
+    # Calculate the absolute difference between the probe array and the estimated probe
+    abs_diff = np.abs(probe_arr - est_probe_arr)
+
+    # Calculate the Mean Absolute Deviation (MAD)
+    mad = np.mean(abs_diff, axis=0)
+
+    # Avoid division by zero by setting MAD values that are zero to a small number
+    mad = np.where(mad == 0, 1e-6, mad)
+
+    # Compute the modified Z-score
+    modified_z_score = 0.6745 * abs_diff / mad
+
+    # Identify outliers based on the threshold
+    outliers = modified_z_score > threshold
+
+    # Replace outliers in probe_arr with the estimated probe values
+    probe_arr[outliers] = est_probe_arr[outliers]
+
+    return est_probe, probe_arr
+
+
+def pmace_recon(y_meas, patch_bounds, init_obj, 
+                init_probe=None, ref_obj=None, ref_probe=None,
                 num_iter=100, joint_recon=False, recon_win=None, save_dir=None,
-                obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, 
-                rho=0.5, probe_exp=1.5, obj_exp=0, add_reg=False, sigma=0.02, probe_center_correction=[], reinit=False,
-                scan_loc_refinement_iterations=[], scan_loc_search_step_sz=2, scan_loc_refine_step_sz=1, gt_scan_loc=None,
-                add_mode=[], energy_ratio=0.05, img_px_sz=4.52e-9, wavelength=1.24e-9, propagation_dist=1e-7, orthogonalize_modes=[], gamma=2):
+                obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, rho=0.5, probe_exp=1.5, 
+                add_reg=False, obj_sigma=0.02, probe_sigma=1, 
+                add_mode=[], energy_ratio=0.05, img_px_sz=4.52e-9, wavelength=1.24e-9, propagation_dist=1e-7, 
+                orthogonalize_modes=[], gamma=2):
     """Projected Multi-Agent Consensus Equilibrium (PMACE).
     
     Args:
@@ -384,16 +363,17 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         probe_data_fit_prm (float): Averaging weight in the probe update function.
         rho (float): Mann averaging parameter.
         probe_exp (float): Exponent of probe weighting in the consensus calculation of the image estimate.
-        obj_exp (float): Exponent of image weighting in the consensus calculation of the probe estimate.
         add_reg (bool): Option to apply denoiser.
-        sigma (float): Denoising parameter.
-        scan_loc_refinement_iterations (list): List of iterations when scan location refinement is applied.
-        scan_loc_search_step_sz (int): Step size for scan location search.
-        scan_loc_refine_step_sz (float): Step size for refining scan locations.
-        gt_scan_loc (numpy.ndarray): Ground truth scan locations.
+        obj_sigma (float): Denoising parameter for object.
+        probe_sigma (float): Denoising parameter for probe.
         add_mode (list): The index of reconstruction iterations to add new probe modes.
+        energy_ratio (float): Ratio of energy in the new probe mode compared to the existing ones.
+        img_px_sz (float): sampling interval for fresnel propagating probe function.
+        wavelength (float): Source wavelength.
+        propagation_dist (float): Propagation distance.
+        orthogonalize_modes (list): The index of reconstruction iterations to orthogonalize probe modes.
         gamma (int): Power parameter for energy weighting.
-        
+
     Returns:
         dict: Reconstructed complex images and NRMSE between reconstructions and reference images.
             Keys:
@@ -426,7 +406,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
     # Initialize estimates with specific data type and creat current patches
     est_obj = np.array(init_obj, dtype=cdtype)
-    new_patch = img2patch(est_obj, patch_bounds, y_meas.shape).astype(cdtype)
+    new_patch = img2patch(est_obj, patch_bounds).astype(cdtype)
     image_sz = est_obj.shape
     
     # Expand the dimensions of reference probe
@@ -442,19 +422,14 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
     y_intsty = y_meas ** 2
     if joint_recon:
         if np.array(init_probe).ndim == 2:
-            probe_modes = np.expand_dims(init_probe, axis=0)
+            probe_modes = np.expand_dims(init_probe, axis=0)                                # [num_mode, mode_h, mode_w]
         elif np.array(init_probe).ndim == 3:
             probe_modes = np.array(init_probe, dtype=cdtype)
 
         probe_dict = {}
         for mode_idx, cur_mode in enumerate(probe_modes):
-            new_probe_arr = np.array([cur_mode] * len(y_meas))
-            probe_dict[mode_idx] = new_probe_arr
-        # est_probe = np.asarray(init_probe, dtype=cdtype)                                        # [mode_h, mode_w]
-        # consens_probe = np.copy(est_probe).astype(cdtype)                                       # [mode_h, mode_w]
-        # new_probe_arr = np.asarray([est_probe] * len(y_meas))                                   # [num_meas, mode_h, mode_w]
-        # probe_modes = np.expand_dims(np.copy(est_probe), axis=0)                                # [num_mode, mode_h, mode_w]
-        # probe_dict = {0: new_probe_arr}                                                         # {mode_idx: mode_array}
+            new_probe_arr = np.array([cur_mode] * len(y_meas))                              # [num_meas, mode_h, mode_w]
+            probe_dict[mode_idx] = new_probe_arr                                            # {mode_idx: mode_array}
     else:
         probe_modes = ref_probe_modes
 
@@ -470,27 +445,29 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
         # Obtain an estimate of the complex object using weighted averaging: z <- G(2w - v)
         est_obj, consens_patch = pixel_weighted_avg_op(2 * cur_patch - new_patch, probe_modes, mode_weights,
                                                        patch_bounds, image_sz, probe_exp=probe_exp,
-                                                       regularization=add_reg, bm3d_psd=sigma, blk_idx=blk_idx)
-
+                                                       regularization=add_reg, bm3d_psd=obj_sigma, blk_idx=blk_idx)
+        
         # Update the projected patch: v <- v + 2 \rho (z - w)
         new_patch = new_patch + 2 * rho * (consens_patch - cur_patch)
 
         # Obtain estimate of complex object using weighted averaging without regularization.
         if not add_reg:
-            est_obj, _ = pixel_weighted_avg_op(new_patch, probe_modes, mode_weights, patch_bounds, image_sz, probe_exp=probe_exp)
-
+            est_obj, consens_patch = pixel_weighted_avg_op(new_patch, probe_modes, mode_weights, patch_bounds, image_sz, probe_exp=probe_exp)
 
         if joint_recon:
             # Add another mode
             if i + 1 in add_mode:
                 probe_modes, probe_dict = add_probe_mode(probe_modes, consens_patch, y_intsty, probe_dict, energy_ratio=energy_ratio,
-                                                         fresnel_propagation=True, dx=img_px_sz, wavelength=wavelength, propagation_dist=propagation_dist)
+                                                         fresnel_enabled=True, dx=img_px_sz, wavelength=wavelength, propagation_dist=propagation_dist)
                 save_tiff(probe_modes[-1], save_dir + 'added_mode_iter_{}.tiff'.format(i+1))
                 
             # Orthogonalize probe modes
             if i + 1 in orthogonalize_modes:
                 probe_modes = orthogonalize_images(probe_modes)
-
+                # Update probe array
+                for mode_idx, cur_mode in enumerate(probe_modes):
+                    probe_dict[mode_idx] = np.array([cur_mode] * len(y_meas))
+                    
             # Calculate estimated intensity for each probe mode
             est_intsty = [np.abs(compute_ft(np.copy(tmp_mode) * consens_patch)) ** 2 for tmp_mode in probe_modes]
 
@@ -499,8 +476,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             
             # Loop through probe_modes to update each mode
             for mode_idx, cur_mode in enumerate(probe_modes):
-                # # Calculate residual measurements
-                # res_meas = np.sqrt(np.asarray(diff_intsty + est_intsty[mode_idx]).clip(0, None))
+                # Calculate residual measurements
                 res_meas = np.sqrt(y_intsty / (sum_intsty + 1e-6))  * np.abs(compute_ft(np.copy(cur_mode) * consens_patch))
 
                 # Get the current probe data
@@ -511,27 +487,15 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
 
                 # Calculate the consensus probe: z <- G(2w - v)
                 consens_probe = np.average((2 * cur_probe_arr - new_probe_arr), axis=0)
+                if add_reg and probe_sigma:
+                    consens_probe = gaussian_filter(np.real(consens_probe), sigma=probe_sigma) + \
+                        1j * gaussian_filter(np.imag(consens_probe), sigma=probe_sigma)
 
                 # Update the probe data: v <- v + 2 * rho * (z - w)
                 new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
 
-                # Update probe modes
-                probe_modes[mode_idx] = consens_probe 
-                probe_dict[mode_idx] = new_probe_arr
-            
-            # Probe center correction
-            if i + 1 in probe_center_correction:
-                est_obj, probe_modes = center_img_with_main_mode(est_obj, probe_modes)
-                if reinit:
-                    est_obj = np.ones_like(est_obj, dtype=np.complex64)
-                new_patch = img2patch(est_obj, patch_bounds, y_meas.shape)
-                
-                # Update probe array
-                for mode_idx, cur_mode in enumerate(probe_modes):
-                    probe_dict[mode_idx] = np.array([cur_mode] * len(y_meas))
-                    
-   
-            # ======================================================== TODO: Sample poisition refinement
+                # Update the probe dictionary
+                probe_modes[mode_idx], probe_dict[mode_idx] = process_probe_arr(new_probe_arr)
 
         # Phase normalization and scale image to minimize the intensity difference
         if ref_obj is not None:
@@ -542,7 +506,6 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             revy_obj = est_obj
 
         if joint_recon and (ref_probe_modes is not None):
-            # tmp_probe_err = 0
             for mode_idx in range(min(len(probe_modes), len(ref_probe_modes))):
                 tmp_probe_mode = phase_norm(np.copy(probe_modes[mode_idx]), ref_probe_modes[mode_idx])
                 tmp_probe_err = compute_nrmse(tmp_probe_mode, ref_probe_modes[mode_idx])
@@ -579,8 +542,12 @@ def pmace_recon(y_meas, patch_bounds, init_obj, init_probe=None, ref_obj=None, r
             for mode_idx, cur_mode in enumerate(probe_modes):
                 save_tiff(cur_mode, save_dir + 'probe_est_iter_{}_mode_{}.tiff'.format(i + 1, mode_idx))
             if nrmse_probe:
-                for mode_idx, nrmse_mode in enumerate(nrmse_probe):
-                    save_array(nrmse_mode, save_dir + f'probe_mode_{mode_idx}_nrmse_' + str(nrmse_mode[-1]))
+                if len(nrmse_probe) == len(nrmse_meas):
+                    save_array(nrmse_probe, save_dir + f'nrmse_probe' + str(nrmse_probe[-1]))
+                else:
+                    for mode_idx, nrmse_mode in enumerate(nrmse_probe):
+                        if nrmse_mode:
+                            save_array(nrmse_mode, save_dir + f'probe_mode_{mode_idx}_nrmse_' + str(nrmse_mode[-1]))
 
     # return recon results
     print('{} recon completed.'.format(approach))
