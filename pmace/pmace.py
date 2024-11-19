@@ -439,10 +439,13 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
     
     # PMACE reconstruction
     for i in tqdm(range(num_iter)):
-        # Update the current patch using data fitting: w <- F(v; w)
+        # Update the current patch using data fitting: w <- F(v; probe_modes)
+        # w is cur_patch, v is new_patch:  these are each indexed by the 1D array of scan locations. 2D image patch at each location.
+        # probe_modes is a 1D vector of images (modes) with typically 1-3 modes total
         cur_patch, mode_weights = object_data_fit_op(new_patch, probe_modes, y_intsty, obj_data_fit_prm, gamma=gamma)
 
-        # Obtain an estimate of the complex object using weighted averaging: z <- G(2w - v)
+        # Obtain an estimate of the complex object using weighted averaging: z <- G(2w - v, probe_modes)
+        # z is consens_patch, est_obj is the full image obtained by combining the patches
         est_obj, consens_patch = pixel_weighted_avg_op(2 * cur_patch - new_patch, probe_modes, mode_weights,
                                                        patch_bounds, image_sz, probe_exp=probe_exp,
                                                        regularization=add_reg, bm3d_psd=obj_sigma, blk_idx=blk_idx)
@@ -475,23 +478,28 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
             sum_intsty = np.sum(est_intsty, axis=0)
             
             # Loop through probe_modes to update each mode
+            # cur_mode is a 2D image
             for mode_idx, cur_mode in enumerate(probe_modes):
                 # Calculate residual measurements
                 res_meas = np.sqrt(y_intsty / (sum_intsty + 1e-6))  * np.abs(compute_ft(np.copy(cur_mode) * consens_patch))
 
-                # Get the current probe data
+                # Get the current probe data.  The probe_dict is indexed by the number of probe modes, and each entry
+                # of new_probe_arr is a vector of probe modes, indexed by scan location.
                 new_probe_arr = probe_dict[mode_idx]
 
-                # Apply the probe data fitting operation: w <- F(v; w)
+                # Apply the probe data fitting operation: r_k <- F(s_k; z=consens_patch)
+                # r_k is cur_probe_arr: a 1D vector of single modes, indexed by scan location
+                # s_k is new_probe_arr: a 1D vector of single modes, indexed by scan location
                 cur_probe_arr = (1 - probe_data_fit_prm) * new_probe_arr + probe_data_fit_prm * get_data_fit_pt(new_probe_arr, consens_patch, res_meas)
 
-                # Calculate the consensus probe: z <- G(2w - v)
+                # Calculate the consensus probe: u_k <- G(2r_k - s_k)
+                # u_k is consens_probe: a single 2D image for the current mode
                 consens_probe = np.average((2 * cur_probe_arr - new_probe_arr), axis=0)
                 if add_reg and probe_sigma:
                     consens_probe = gaussian_filter(np.real(consens_probe), sigma=probe_sigma) + \
                         1j * gaussian_filter(np.imag(consens_probe), sigma=probe_sigma)
 
-                # Update the probe data: v <- v + 2 * rho * (z - w)
+                # Update the probe data: s_k <- s_k + 2 * rho * (u_k - r_k)
                 new_probe_arr = new_probe_arr + 2 * rho * (consens_probe - cur_probe_arr)
 
                 # Update the probe dictionary
