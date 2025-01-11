@@ -127,7 +127,7 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
     plt.imshow(np.abs(cmplx_img_rgn), cmap='gray', vmax=mag_vmax, vmin=mag_vmin)
     plt.colorbar()
     plt.axis('off')
-    plt.title(r'Magnitude of {}'.format(img_title))
+    plt.title(r'Mag of {}'.format(img_title))
                                   
     # Phase of the reconstructed complex image
     plt.subplot(2, 4, 2)
@@ -148,7 +148,7 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
     plt.imshow(np.imag(cmplx_img_rgn), cmap='gray', vmax=imag_vmax, vmin=imag_vmin)
     plt.colorbar()
     plt.axis('off')
-    plt.title('Imaginary Part of {}'.format(img_title))
+    plt.title('Imag Part of {}'.format(img_title))
 
     if show_err_img:
         # Amplitude of the difference between complex reconstruction and ground truth image
@@ -184,5 +184,5 @@ def plot_cmplx_img(cmplx_img, img_title='img', ref_img=None, display_win=None, d
     if save_fname is not None:
         plt.savefig('{}.png'.format(save_fname))
     if display:
-        plt.show()
+        plt.show(block=True)
     plt.clf()
