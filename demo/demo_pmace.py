@@ -29,6 +29,8 @@ def build_parser():
     parser.add_argument('config_dir', type=str, help='Path to config file.', nargs='?', 
                         const='demo_pmace.yaml',
                         default='config/demo_pmace.yaml')
+    parser.add_argument('-d', '--display', action='store_true', help='Display the intermediate results.')
+
     return parser
 
 
@@ -48,9 +50,6 @@ def main():
     data_dir = os.path.join(dataset_dir, config['data']['data_dir'])
     window_coords = config['data']['window_coords']
     save_dir = config['recon']['out_dir']
-    
-    # Download dataset
-    dataset_path = download_and_extract(dataset_url, dataset_dir)
 
     # Check and create the output directory
     print("Creating output directory '%s' ..." % save_dir)
@@ -86,7 +85,7 @@ def main():
     num_iter = config['recon']['num_iter']
     joint_recon = config['recon']['joint_recon']
     alpha = config['recon']['data_fit_param']
-    fig_args = dict(display_win=recon_win, save_dir=save_dir)
+    fig_args = dict(display_win=recon_win, save_dir=save_dir, display=args.display)
     
     # PMACE reconstruction
     pmace_obj = PMACE(pmace_recon, y_meas, patch_crds, init_obj, ref_obj=ref_obj, ref_probe=ref_probe,

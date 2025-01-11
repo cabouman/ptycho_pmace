@@ -1,0 +1,31 @@
+data:
+  data_dir: ../data/BMPMACE_demo_data/
+  intensity_meas_dir: frame_data/
+  ref_object_dir: ground_truth_img/ref_object.tiff
+  ref_probe_0_dir: ground_truth_img/ref_probe_mode_0.tiff
+  ref_probe_1_dir: ground_truth_img/ref_probe_mode_1.tiff
+  sample_pos_dir: Translations.tsv.txt
+  window_coords: [240, 840, 240, 840]
+initialization:
+  fresnel_propagation: True
+  sampling_interval: 2.4e-9
+  source_wavelength: 1.4e-9
+  propagation_distance: 2e-6
+recon:
+  num_iter: 200
+  joint_recon: True
+  add_mode: [20]
+  energy_ratio: 0.1
+  source_wavelength: 1.4e-9
+  propagation_distance: 2e-6
+  sampling_interval: 2.4e-9
+single-mode:
+  alpha1: 0.6
+  alpha2: 0.6
+  kappa: 1.25
+multi-mode:
+  alpha1: 0.5
+  alpha2: 0.6
+  kappa: 1.25
+output:
+  out_dir: ../output/demo_blind_multi_mode_pmace_result/
