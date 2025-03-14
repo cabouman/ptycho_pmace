@@ -2,7 +2,7 @@
 Installation
 ============
 
-The ``ptycho_pmace`` package is currently only available to download and install from source available through GitHub at `GMCluster <https://github.com/cabouman/ptycho_pmace>`_.
+The ``ptycho_pmace`` package is currently only available to download and install from source available through GitHub at `ptycho_pmace <https://github.com/cabouman/ptycho_pmace>`_.
 
 
 
