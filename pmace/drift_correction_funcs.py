@@ -1,39 +1,33 @@
-import numpy as np
 from .utils import *
+from scipy.ndimage import center_of_mass
 
 
 def find_center_offset(cmplx_img):
-    """
-    Find the offset between the center of the input complex image and the true center of the image.
-
+    """Find the offset between the center of complex-valued input image and the true center of the image.
+    
     Args:
         cmplx_img (numpy.ndarray): Complex-valued input image.
-
+    
     Returns:
         list: A list containing the offset in the x and y directions, respectively.
     """
-    # Find the center of the given image
-    c_0, c_1 = np.shape(cmplx_img)[0] // 2, np.shape(cmplx_img)[1] // 2
-    
-    # Calculate peak and mean value of the magnitude image
-    mag_img = np.abs(cmplx_img)
-    peak_mag, mean_mag = np.amax(mag_img), np.mean(mag_img)
-    
-    # Find a group of points above the mean value
-    pts = np.argwhere(np.logical_and(mag_img >= mean_mag, mag_img <= peak_mag))
-    
-    # Find the unknown shifted center by averaging the group of points
-    curr_center = np.mean(pts, axis=0)
-    
-    # Compute the offset between the unknown shifted center and the true center of the image
-    offset = [int(c_0 - np.around(curr_center[0])), int(c_1 - np.around(curr_center[1]))]
+    # Compute the center of the given image
+    center_of_mass_coords = center_of_mass(np.abs(cmplx_img))
 
-    return offset
+    # Determine the true center of the image
+    true_center = (np.array(cmplx_img.shape) - 1) / 2
+
+    # Calculate the offset
+    offset = center_of_mass_coords - true_center
+
+    # Round the offset to the nearest integer
+    integer_offset = np.round(offset).astype(int)
+
+    return integer_offset
 
 
-def correct_img_center(shifted_img, ref_img=None):
-    """
-    Correct the center of an image by aligning it with a reference image.
+def correct_img_center(input_img, integer_shift=False, ref_img=None):
+    """Correct the center of an image by aligning it with a reference image.
 
     Args:
         shifted_img (numpy.ndarray): The image to be aligned/corrected.
@@ -44,17 +38,70 @@ def correct_img_center(shifted_img, ref_img=None):
     """
     # Check the reference image
     if ref_img is None:
-        ref_img = np.copy(shifted_img)
+        ref_img = np.copy(input_img)
         
     # Compute center offset using the reference image
     offset = find_center_offset(ref_img)
     
     # Shift the image back to the correct location
-    output = np.roll(shifted_img, (offset[0], offset[1]), axis=(0, 1))
+    if integer_shift:
+        output = np.roll(input_img, (int(np.round(offset[0])), int(np.round(offset[1]))), axis=(0, 1))
+    else:
+        output = shift_complex_array(input_img, offset[0], offset[1])
 
     return output
 
 
+def shift_complex_array(arr, delta_y, delta_x):
+    """
+    Shifts a 2D complex array by non-integer displacement amounts using the Fourier shift theorem.
+    
+    Args:
+        arr (numpy.ndarray): 2D complex array to be shifted
+        delta_y (float): Shift amount in y-direction (rows)
+        delta_x (float): Shift amount in x-direction (columns)
+    
+    Returns:
+        numpy.ndarray: Shifted complex array with same shape as input
+    """
+    # Get original array dimensions
+    ny, nx = arr.shape
+    
+    # Calculate padding width to avoid edge effects
+    # Use 1.5 times the maximum shift or minimum of 20 pixels
+    pad_width = max(int(1.5 * abs(delta_x)), int(1.5 * abs(delta_y)), 20)
+    
+    # Pad the array with zeros to avoid edge effects during shifting
+    padded_arr = np.pad(arr, pad_width, mode='constant', constant_values=0)
+    
+    # Compute 2D FFT of the padded array
+    arr_fft = np.fft.fft2(padded_arr)
+    
+    # Get dimensions of padded array
+    ly, lx = padded_arr.shape
+    
+    # Generate frequency grids for x and y directions
+    x = np.fft.fftfreq(lx)
+    y = np.fft.fftfreq(ly)
+    xv, yv = np.meshgrid(x, y)
+    
+    # Create the shift kernel using the Fourier shift theorem
+    shift_kernel = np.exp(-2j * np.pi * (xv * delta_x + yv * delta_y))
+    
+    # Apply the shift in frequency domain by multiplying with the shift kernel
+    arr_fft_shifted = arr_fft * shift_kernel
+    
+    # Transform back to spatial domain using inverse FFT
+    arr_shifted_padded = np.fft.ifft2(arr_fft_shifted)
+    
+    # Extract the original region from the padded shifted array
+    startx = pad_width
+    starty = pad_width
+    arr_shifted = arr_shifted_padded[starty:starty + ny, startx:startx + nx]
+    
+    return arr_shifted
+    
+    
 def center_img_with_main_mode(cmplx_img, cmplx_probe_modes):
     """
     Center a complex image and a set of complex probe modes with respect to the first probe mode.
