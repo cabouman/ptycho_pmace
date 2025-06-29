@@ -11,7 +11,7 @@
 
 PMACE (Projected Multi-Agent Consensus Equilibrium) is a powerful framework for distributed reconstruction, particularly designed for ptychographic image reconstruction. This Python package implements the PMACE approach with advanced features for multi-mode probe reconstruction and position refinement.
 
-![PMACE Object Pipeline](images/PMACE_pipeline_object.png)
+<img src="images/PMACE_pipeline_object.png" alt="PMACE Object Pipeline" width="400"/>
 
 <div align="center">
   PMACE object reconstruction pipeline.
