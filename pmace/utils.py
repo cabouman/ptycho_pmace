@@ -443,7 +443,7 @@ def img2patch(full_img, patch_coords):
     return np.asarray(output)
 
 
-def compute_ft(input_array, threads=1):
+def compute_ft(input_array, threads=None):
     """Compute the 2D Discrete Fourier Transform (DFT) of an input array.
     
     Args:
@@ -465,7 +465,7 @@ def compute_ft(input_array, threads=1):
     return output
 
 
-def compute_ift(input_array, threads=1):
+def compute_ift(input_array, threads=None):
     """Compute the 2D Inverse Discrete Fourier Transform (IDFT) of an input array.
     
     Args:
