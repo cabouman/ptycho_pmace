@@ -24,3 +24,15 @@ Distributed Reconstruction and Application
    :align: center
 
    Ptychographic Imaging
+
+
+Multi-mode Reconstruction in BM-PMACE
+-------------------------------------
+
+In ptychographic imaging, the illuminating probe can often consist of multiple spatial modes due to partial coherence or system imperfections. PMACE addresses this by enabling **multi-mode probe reconstruction**, where the algorithm simultaneously estimates several probe modes along with the object. Each mode is updated iteratively, and their contributions are weighted based on their relative energy. This approach allows for accurate modeling of the illumination, leading to improved reconstruction quality, especially in challenging experimental conditions.
+
+.. figure:: PMACE_pipeline_probe.png
+   :width: 80%
+   :align: center
+
+   PMACE probe reconstruction pipeline
