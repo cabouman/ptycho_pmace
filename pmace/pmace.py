@@ -2,6 +2,7 @@ from .utils import *
 from .nrmse import *
 from tqdm import tqdm
 from bm4d import bm4d, BM4DProfileBM3DComplex
+from .sample_position_refinement_funcs import search_offset, shift_position
 
 
 class PMACE():
@@ -345,7 +346,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
                 obj_data_fit_prm=0.5, probe_data_fit_prm=0.5, rho=0.5, probe_exp=1.5, 
                 add_reg=False, obj_sigma=0.02, probe_sigma=1, 
                 add_mode=[], energy_ratio=0.05, img_px_sz=4.52e-9, wavelength=1.24e-9, propagation_dist=1e-7, 
-                orthogonalize_modes=[], gamma=2):
+                orthogonalize_modes=[], gamma=2, refine_positions=[], position_step_size=1, position_grid_size=3):
     """Projected Multi-Agent Consensus Equilibrium (PMACE).
     
     Args:
@@ -373,6 +374,9 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
         propagation_dist (float): Propagation distance.
         orthogonalize_modes (list): The index of reconstruction iterations to orthogonalize probe modes.
         gamma (int): Power parameter for energy weighting.
+        refine_positions (bool): Whether to refine scan positions during reconstruction.
+        position_step_size (int): Step size for position refinement search grid.
+        position_grid_size (int): Size of the search grid for position refinement (e.g., 3 for a 3x3 grid).
 
     Returns:
         dict: Reconstructed complex images and NRMSE between reconstructions and reference images.
@@ -382,6 +386,7 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
                 - 'err_obj' (list): NRMSE values for the object reconstructions.
                 - 'err_probe' (list): NRMSE values for the probe reconstructions (if joint_recon is True).
                 - 'err_meas' (list): NRMSE values for the measured data.
+                - 'updated_patch_bounds' (list): Updated scan coordinates after position refinement.
     """
     approach = 'reg-PMACE' if add_reg else 'PMACE'
     cdtype = np.complex64
@@ -402,7 +407,6 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
     nrmse_probe = [ [] for _ in range(max(2, 1 + len(set(add_mode)))) ]
     nrmse_meas = []
     mse_meas = []
-    mse_intsty = []
 
     # Initialize estimates with specific data type and creat current patches
     est_obj = np.array(init_obj, dtype=cdtype)
@@ -525,7 +529,34 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
             save_tiff(est_obj, save_dir + 'est_obj_iter_{}.tiff'.format(i + 1))
             for mode_idx, cur_mode in enumerate(probe_modes):
                 save_tiff(cur_mode, save_dir + 'probe_est_iter_{}_mode_{}.tiff'.format(i + 1, mode_idx))
-        
+                
+        # Position refinement if enabled and it's time to refine
+        if i + 1 in refine_positions:
+            print(f'Refining positions at iteration {i + 1}')
+            # Update patch bounds based on current estimates
+            for patch_idx, (curr_patch, curr_bounds) in enumerate(zip(new_patch, current_patch_bounds)):
+                # Find optimal offset for current patch
+                offset = search_offset(est_obj, probe_modes[0], curr_bounds, y_meas[patch_idx], 
+                                      position_step_size, grid_size=position_grid_size)
+                
+                # Apply offset to patch bounds
+                shifted_patch, shifted_bounds = shift_position(est_obj, curr_bounds, offset)
+                current_patch_bounds[patch_idx] = shifted_bounds
+                
+                # Update patch with shifted position
+                new_patch[patch_idx] = shifted_patch
+            print(f'Updated positions at iteration {i + 1}', np.linalg.norm(current_patch_bounds - original_patch_bounds))
+                
+            # Save updated positions if save_dir is provided
+            if save_dir is not None:
+                # Save positions as text file
+                with open(save_dir + f'updated_positions_iter_{i + 1}.txt', 'w') as f:
+                    f.write('# Format: [center_row, center_col]\n')
+                    for idx, bounds in enumerate(current_patch_bounds):
+                        center_row = (bounds[0] + bounds[1]) / 2
+                        center_col = (bounds[2] + bounds[3]) / 2
+                        f.write(f'Patch {idx}: [{center_row:.1f}, {center_col:.1f}]\n')
+                
     # # calculate time consumption
     # print('Time consumption of {}:'.format(approach), time.time() - start_time)
 
@@ -548,11 +579,18 @@ def pmace_recon(y_meas, patch_bounds, init_obj,
                     for mode_idx, nrmse_mode in enumerate(nrmse_probe):
                         if nrmse_mode:
                             save_array(nrmse_mode, save_dir + f'probe_mode_{mode_idx}_nrmse_' + str(nrmse_mode[-1]))
+        # Save final positions as text file
+        with open(save_dir + 'final_positions.txt', 'w') as f:
+            f.write('# Format: [center_row, center_col]\n')
+            for idx, bounds in enumerate(current_patch_bounds):
+                center_row = (bounds[0] + bounds[1]) / 2
+                center_col = (bounds[2] + bounds[3]) / 2
+                f.write(f'Patch {idx}: [{center_row:.1f}, {center_col:.1f}]\n')
 
     # return recon results
     print('{} recon completed.'.format(approach))
-    keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas']
-    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas]
+    keys = ['object', 'probe', 'err_obj', 'err_probe', 'err_meas', 'updated_patch_bounds']
+    vals = [revy_obj, revy_probe, nrmse_obj, nrmse_probe, nrmse_meas, current_patch_bounds]
     output = dict(zip(keys, vals))
 
     return output
