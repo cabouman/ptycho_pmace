@@ -24,7 +24,6 @@ In ptychographic imaging, the goal is to recover the complex-valued object (samp
 </div>
 
 <br>
-<br>
 
 **Multi-mode Reconstruction in BM-PMACE**
 
