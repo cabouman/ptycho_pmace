@@ -1,19 +1,30 @@
-# PMACE: Projected Multi-Agent Consensus Equilibrium 
+# PMACE: Projected Multi-Agent Consensus Equilibrium
+
+[![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://ptycho-pmace.readthedocs.io/)
+[![License](https://img.shields.io/badge/license-BSD%203--Clause-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+
 *The documentation for this package is available here:*
->https://ptycho-pmace.readthedocs.io/
+> https://ptycho-pmace.readthedocs.io/
 
 ## Overview
 
-PMACE is a framework for distributed reconstruction such as ptychographic image reconstruction.
+PMACE (Projected Multi-Agent Consensus Equilibrium) is a powerful framework for distributed reconstruction, particularly designed for ptychographic image reconstruction. This Python package implements the PMACE approach with advanced features for multi-mode probe reconstruction and position refinement.
 
-This python package implements PMACE approach in python.
-
-![](images/PMACE_flow.png)
+![PMACE Pipeline](images/PMACE_flow.png)
 
 <div align="center">
   Conceptual rendering of the PMACE pipeline.
 </div>
 
+## Key Features
+
+- **Projected Multi-Agent Consensus Equilibrium**: Implements the core PMACE algorithm for distributed reconstruction
+- **Multi-Mode Probe Reconstruction**: Support for complex probe modes with automatic mode detection
+- **Position Refinement**: Advanced scan position refinement with parallel grid search
+- **Regularization**: Built-in BM3D/BM4D denoising for improved reconstruction quality
+- **Flexible Configuration**: YAML-based configuration system for easy parameter tuning
+- **Comprehensive Testing**: Multiple test datasets including synthetic and real-world data
 
 ## Installation
 1. Download the source code:
@@ -81,8 +92,16 @@ This python package implements PMACE approach in python.
 
 For more information on the methods implemented in this code, please see:
 
-[paper link](https://ieeexplore.ieee.org/document/9723357)
+**[PMACE for Ptychography (2021)](https://ieeexplore.ieee.org/document/9723357)**
 Zhai, Qiuchen, Brendt Wohlberg, Gregery T. Buzzard, and Charles A. Bouman. "Projected multi-agent consensus equilibrium for ptychographic image reconstruction." In 2021 55th Asilomar Conference on Signals, Systems, and Computers, pp. 1694-1698. IEEE, 2021, doi: 10.1109/IEEECONF53345.2021.9723357.
 
-[paper link](https://arxiv.org/pdf/2303.15679.pdf)
-Zhai, Qiuchen, Gregery T. Buzzard, Kevin Mertes, Brendt Wohlberg, and Charles A. Bouman. "Projected Multi-Agent Consensus Equilibrium (PMACE) for Distributed Reconstruction with Application to Ptychography." arXiv preprint arXiv:2303.15679 (2023).
+**[PMACE for Distributed Reconstruction (2023)](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=10301493)**
+Zhai, Qiuchen, Gregery T. Buzzard, Kevin Mertes, Brendt Wohlberg, and Charles A. Bouman. "Projected multi-agent consensus equilibrium (PMACE) with application to ptychography." IEEE Transactions on Computational Imaging 9 (2023): 1058-1070..
+
+**[Blind Multi-Mode PMACE for Ptychography (2025)](https://arxiv.org/pdf/2501.06470)**
+Zhai, Qiuchen, Gregery T. Buzzard, Kevin Mertes, Brendt Wohlberg, and Charles A. Bouman. "Ptychography using Blind Multi-Mode PMACE." arXiv preprint arXiv:2501.06470 (2025).
+
+## Contact
+
+- **Maintainer**: Qiuchen Zhai (qzhai@alumni.purdue.edu)
+- **Repository**: https://github.com/cabouman/ptycho_pmace
