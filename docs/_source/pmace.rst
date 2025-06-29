@@ -68,3 +68,12 @@ pmace.display
       plot_scan_pt
       plot_nrmse
       plot_cmplx_img
+
+
+pmace.sample_position_refinement_funcs
+-------------------------------------
+
+.. automodule:: pmace.sample_position_refinement_funcs
+   :members:
+   :undoc-members:
+   :show-inheritance:
