@@ -443,7 +443,7 @@ def img2patch(full_img, patch_coords):
     return np.asarray(output)
 
 
-def compute_ft(input_array, threads=None):
+def compute_ft(input_array, threads=1):
     """Compute the 2D Discrete Fourier Transform (DFT) of an input array.
     
     Args:
@@ -455,7 +455,8 @@ def compute_ft(input_array, threads=None):
     """
     if threads is None:
         threads = mp.cpu_count()
-
+    
+    # Create FFTW plan once and reuse
     a = np.fft.fftshift(input_array.astype(np.complex64), axes=(-2, -1))
     b = np.zeros_like(a)
     fft_object = pyfftw.FFTW(a, b, axes=(-2, -1), normalise_idft=False, ortho=True, direction='FFTW_FORWARD', threads=threads)
@@ -464,7 +465,7 @@ def compute_ft(input_array, threads=None):
     return output
 
 
-def compute_ift(input_array, threads=None):
+def compute_ift(input_array, threads=1):
     """Compute the 2D Inverse Discrete Fourier Transform (IDFT) of an input array.
     
     Args:

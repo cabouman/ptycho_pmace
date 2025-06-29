@@ -31,7 +31,7 @@ def forward_propagation(cmplx_img, cmplx_probe, patch_crd, curr_meas, x_ofs=0, y
     shifted_patch, shifted_patch_crds = shift_position(cmplx_img, patch_crd, curr_offset)
     
     # Compute absolute value of the Fourier transform of the probe multiplied by the shifted patch
-    tmp_meas = np.abs(compute_ft(cmplx_probe * shifted_patch))
+    tmp_meas = np.abs(compute_ft(cmplx_probe * shifted_patch, threads=1))
     
     # Calculate the Frobenius norm between the current measurement and the computed measurement
     err_meas = np.linalg.norm(curr_meas - tmp_meas)
