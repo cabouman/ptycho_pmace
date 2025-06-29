@@ -27,7 +27,9 @@ In ptychographic imaging, the goal is to recover the complex-valued object (samp
 
 In ptychographic imaging, the illuminating probe can often consist of multiple spatial modes due to partial coherence or system imperfections. PMACE addresses this by enabling **multi-mode probe reconstruction**, where the algorithm simultaneously estimates several probe modes along with the object. Each mode is updated iteratively, and their contributions are weighted based on their relative energy. This approach allows for accurate modeling of the illumination, leading to improved reconstruction quality, especially in challenging experimental conditions.
 
-![PMACE Probe Pipeline](images/PMACE_pipeline_probe.png)
+<div align="center">
+  <img src="images/PMACE_pipeline_probe.png" alt="PMACE Probe Pipeline" width="600"/>
+</div>
 
 <div align="center">
   PMACE probe reconstruction pipeline.
